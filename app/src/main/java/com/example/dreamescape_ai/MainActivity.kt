@@ -30,6 +30,9 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.padding(innerPadding),
                         onCreateCharacterClick = {
                             startActivity(Intent(this, CreateCharacterActivity::class.java))
+                        },
+                        onCreateSceneClick = {
+                            startActivity(Intent(this, CreateSceneActivity::class.java))
                         }
                     )
                 }
@@ -41,7 +44,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen(
     modifier: Modifier = Modifier,
-    onCreateCharacterClick: () -> Unit = {}
+    onCreateCharacterClick: () -> Unit = {},
+    onCreateSceneClick: () -> Unit = {}
 ) {
     Column(
         modifier = modifier
@@ -58,6 +62,15 @@ fun MainScreen(
                 .padding(top = 16.dp)
         ) {
             Text("Create Character")
+        }
+
+        Button(
+            onClick = onCreateSceneClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp)
+        ) {
+            Text("Create Scene")
         }
     }
 }
