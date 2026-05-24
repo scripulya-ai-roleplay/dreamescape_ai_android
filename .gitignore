@@ -1,0 +1,57 @@
+# Gradle files
+.gradle/
+build/
+*/build/
+
+# Local configuration files (SDK path, etc.)
+local.properties
+
+# IntelliJ IDEA / Android Studio
+.idea/
+*.iml
+*.iws
+*.ipr
+/.idea/caches/
+/.idea/libraries/
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+
+# OS-specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Kotlin specific
+*.kotlin_module
+*.kotlin_builtins
+*.kotlin_metadata
+
+# Built application files
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class
+
+# Keystore and Signing files (Sensitive Data - NEVER COMMIT)
+*.jks
+*.keystore
+*.p12
+*.key
+*.pepk
+
+# Log Files
+*.log
+crashlytics-build.properties
+
+# NDK / C++ build files
+.cxx/
+obj/
+
+# Testing
+build/reports/
