@@ -33,6 +33,9 @@ class MainActivity : ComponentActivity() {
                         },
                         onCreateSceneClick = {
                             startActivity(Intent(this, CreateSceneActivity::class.java))
+                        },
+                        onSceneListClick = {
+                            startActivity(Intent(this, SceneListActivity::class.java))
                         }
                     )
                 }
@@ -45,7 +48,8 @@ class MainActivity : ComponentActivity() {
 fun MainScreen(
     modifier: Modifier = Modifier,
     onCreateCharacterClick: () -> Unit = {},
-    onCreateSceneClick: () -> Unit = {}
+    onCreateSceneClick: () -> Unit = {},
+    onSceneListClick: () -> Unit = {}
 ) {
     Column(
         modifier = modifier
@@ -71,6 +75,15 @@ fun MainScreen(
                 .padding(top = 16.dp)
         ) {
             Text("Create Scene")
+        }
+
+        Button(
+            onClick = onSceneListClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp)
+        ) {
+            Text("Scene List")
         }
     }
 }

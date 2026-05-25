@@ -12,6 +12,11 @@
             android:supportsRtl="true"
             android:theme="@style/Theme.Dreamescape_ai">
         <activity
+                android:name=".SceneListActivity"
+                android:exported="false"
+                android:label="Scenes"
+                android:theme="@style/Theme.Dreamescape_ai"/>
+        <activity
                 android:name=".CreateSceneActivity"
                 android:exported="false"
                 android:label="Create Scene"
