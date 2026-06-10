@@ -2,6 +2,7 @@ package com.example.dreamescape_ai
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.dreamescape_ai.auth.JwtTokenProvider
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,7 +29,7 @@ class CreateSceneViewModel(
         ScenesApi().createSceneApiV1ScenesPost(scene)
     },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val ownerId: UUID = UUID.randomUUID()
+    private val ownerId: UUID = JwtTokenProvider().userId
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CreateSceneUiState())

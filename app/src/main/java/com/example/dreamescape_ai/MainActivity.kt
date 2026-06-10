@@ -10,13 +10,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.dreamescape_ai.ui.theme.Dreamescape_aiTheme
 
 class MainActivity : ComponentActivity() {
@@ -46,6 +52,36 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainScreen(
+    modifier: Modifier = Modifier,
+    viewModel: MainViewModel = viewModel(),
+    onCreateCharacterClick: () -> Unit = {},
+    onCreateSceneClick: () -> Unit = {},
+    onSceneListClick: () -> Unit = {}
+) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.checkBackendAvailability()
+    }
+
+    MainScreenContent(
+        modifier = modifier,
+        onCreateCharacterClick = onCreateCharacterClick,
+        onCreateSceneClick = onCreateSceneClick,
+        onSceneListClick = onSceneListClick
+    )
+
+    if (uiState.showApiUnavailableDialog) {
+        ApiUnavailableDialog(
+            errorMessage = uiState.errorMessage,
+            onRetry = viewModel::checkBackendAvailability,
+            onDismiss = viewModel::dismissApiUnavailableDialog
+        )
+    }
+}
+
+@Composable
+fun MainScreenContent(
     modifier: Modifier = Modifier,
     onCreateCharacterClick: () -> Unit = {},
     onCreateSceneClick: () -> Unit = {},
@@ -89,6 +125,35 @@ fun MainScreen(
 }
 
 @Composable
+fun ApiUnavailableDialog(
+    errorMessage: String?,
+    onRetry: () -> Unit = {},
+    onDismiss: () -> Unit = {}
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Backend API not accessible") },
+        text = {
+            Text(
+                "Could not reach the backend API at ${DreamescapeApplication.BACKEND_BASE_URL}. " +
+                    "Please make sure the backend is running and reachable, then try again." +
+                    (errorMessage?.let { "\n\nDetails: $it" } ?: "")
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onRetry) {
+                Text("Retry")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Dismiss")
+            }
+        }
+    )
+}
+
+@Composable
 fun Greeting(name: String, modifier: Modifier = Modifier) {
     Text(
         text = "Hello $name!",
@@ -100,6 +165,6 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
 @Composable
 fun MainScreenPreview() {
     Dreamescape_aiTheme {
-        MainScreen()
+        MainScreenContent()
     }
 }

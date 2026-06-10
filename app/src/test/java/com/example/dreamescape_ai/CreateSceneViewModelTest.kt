@@ -1,5 +1,6 @@
 package com.example.dreamescape_ai
 
+import com.example.dreamescape_ai.auth.JwtConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -265,6 +266,28 @@ class CreateSceneViewModelTest {
         assertEquals("You are in a dark forest", capturedScene?.backgroundPrompt)
         assertEquals("Welcome to the forest", capturedScene?.initialMessageText)
         assertEquals(testOwnerId, capturedScene?.ownerId)
+    }
+
+    @Test
+    fun `createScene uses the JWT issued user id as owner by default`() = runTest {
+        // Regression test: the owner id must come from the JWT token's subject
+        // (the authenticated user), not a randomly generated UUID.
+        var capturedScene: Scene? = null
+        val viewModel = CreateSceneViewModel(
+            createSceneCall = { scene ->
+                capturedScene = scene
+                ModelApiResponse(result = "created")
+            },
+            ioDispatcher = testDispatcher
+        )
+        viewModel.onTitleChanged("Dark Forest")
+        viewModel.onBackgroundPromptChanged("You are in a dark forest")
+        viewModel.onInitialMessageTextChanged("Welcome to the forest")
+
+        viewModel.createScene()
+        advanceUntilIdle()
+
+        assertEquals(UUID.fromString(JwtConfig.TOKEN_SUBJECT), capturedScene?.ownerId)
     }
 
     @Test
