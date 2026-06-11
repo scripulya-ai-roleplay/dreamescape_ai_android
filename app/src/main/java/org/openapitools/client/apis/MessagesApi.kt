@@ -24,8 +24,8 @@ import org.openapitools.client.models.ApiResponsePageMessage
 import org.openapitools.client.models.BodyUpdateMessageApiV1MessagesMessageIdPut
 import org.openapitools.client.models.ChatRoles
 import org.openapitools.client.models.HTTPValidationError
-import org.openapitools.client.models.Message
 import org.openapitools.client.models.ModelApiResponse
+import org.openapitools.client.models.UserMessageDTO
 
 import com.squareup.moshi.Json
 
@@ -54,7 +54,7 @@ class MessagesApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClien
     /**
      * Create Message
      * 
-     * @param message 
+     * @param userMessageDTO 
      * @return ApiResponseMessage
      * @throws IllegalStateException If the request is not correctly configured
      * @throws IOException Rethrows the OkHttp execute method exception
@@ -64,8 +64,8 @@ class MessagesApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClien
      */
     @Suppress("UNCHECKED_CAST")
     @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
-    fun createMessageApiV1MessagesPost(message: Message) : ApiResponseMessage {
-        val localVarResponse = createMessageApiV1MessagesPostWithHttpInfo(message = message)
+    fun createMessageApiV1MessagesPost(userMessageDTO: UserMessageDTO) : ApiResponseMessage {
+        val localVarResponse = createMessageApiV1MessagesPostWithHttpInfo(userMessageDTO = userMessageDTO)
 
         return when (localVarResponse.responseType) {
             ResponseType.Success -> (localVarResponse as Success<*>).data as ApiResponseMessage
@@ -85,17 +85,17 @@ class MessagesApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClien
     /**
      * Create Message
      * 
-     * @param message 
+     * @param userMessageDTO 
      * @return ApiResponse<ApiResponseMessage?>
      * @throws IllegalStateException If the request is not correctly configured
      * @throws IOException Rethrows the OkHttp execute method exception
      */
     @Suppress("UNCHECKED_CAST")
     @Throws(IllegalStateException::class, IOException::class)
-    fun createMessageApiV1MessagesPostWithHttpInfo(message: Message) : ApiResponse<ApiResponseMessage?> {
-        val localVariableConfig = createMessageApiV1MessagesPostRequestConfig(message = message)
+    fun createMessageApiV1MessagesPostWithHttpInfo(userMessageDTO: UserMessageDTO) : ApiResponse<ApiResponseMessage?> {
+        val localVariableConfig = createMessageApiV1MessagesPostRequestConfig(userMessageDTO = userMessageDTO)
 
-        return request<Message, ApiResponseMessage>(
+        return request<UserMessageDTO, ApiResponseMessage>(
             localVariableConfig
         )
     }
@@ -103,11 +103,11 @@ class MessagesApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClien
     /**
      * To obtain the request config of the operation createMessageApiV1MessagesPost
      *
-     * @param message 
+     * @param userMessageDTO 
      * @return RequestConfig
      */
-    fun createMessageApiV1MessagesPostRequestConfig(message: Message) : RequestConfig<Message> {
-        val localVariableBody = message
+    fun createMessageApiV1MessagesPostRequestConfig(userMessageDTO: UserMessageDTO) : RequestConfig<UserMessageDTO> {
+        val localVariableBody = userMessageDTO
         val localVariableQuery: MultiValueMap = mutableMapOf()
         val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
         localVariableHeaders["Content-Type"] = "application/json"

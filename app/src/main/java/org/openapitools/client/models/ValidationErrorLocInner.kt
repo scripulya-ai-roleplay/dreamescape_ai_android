@@ -20,23 +20,10 @@ import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
 /**
- * Represents an element in the `loc` array of a validation error.
- * Each element can be either a string or an integer.
+ * 
  *
- * @param value The location element value (string or integer).
  */
 
-@JsonClass(generateAdapter = false)
-data class ValidationErrorLocInner (
 
-    @Json(name = "value")
-    val value: kotlin.Any? = null
-
-) {
-
-    companion object {
-        fun fromString(s: String): ValidationErrorLocInner = ValidationErrorLocInner(value = s)
-        fun fromInt(i: Int): ValidationErrorLocInner = ValidationErrorLocInner(value = i)
-    }
-}
+typealias ValidationErrorLocInner = kotlin.Any
 
