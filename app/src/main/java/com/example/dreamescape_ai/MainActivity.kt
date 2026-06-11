@@ -42,6 +42,14 @@ class MainActivity : ComponentActivity() {
                         },
                         onSceneListClick = {
                             startActivity(Intent(this, SceneListActivity::class.java))
+                        },
+                        onCreateChatClick = {
+                            // A chat is always created for a scene, so the scene list
+                            // doubles as the scene picker that leads into chat creation.
+                            startActivity(Intent(this, SceneListActivity::class.java))
+                        },
+                        onOpenChatClick = {
+                            startActivity(Intent(this, ChatListActivity::class.java))
                         }
                     )
                 }
@@ -56,7 +64,9 @@ fun MainScreen(
     viewModel: MainViewModel = viewModel(),
     onCreateCharacterClick: () -> Unit = {},
     onCreateSceneClick: () -> Unit = {},
-    onSceneListClick: () -> Unit = {}
+    onSceneListClick: () -> Unit = {},
+    onCreateChatClick: () -> Unit = {},
+    onOpenChatClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -68,7 +78,9 @@ fun MainScreen(
         modifier = modifier,
         onCreateCharacterClick = onCreateCharacterClick,
         onCreateSceneClick = onCreateSceneClick,
-        onSceneListClick = onSceneListClick
+        onSceneListClick = onSceneListClick,
+        onCreateChatClick = onCreateChatClick,
+        onOpenChatClick = onOpenChatClick
     )
 
     if (uiState.showApiUnavailableDialog) {
@@ -85,7 +97,9 @@ fun MainScreenContent(
     modifier: Modifier = Modifier,
     onCreateCharacterClick: () -> Unit = {},
     onCreateSceneClick: () -> Unit = {},
-    onSceneListClick: () -> Unit = {}
+    onSceneListClick: () -> Unit = {},
+    onCreateChatClick: () -> Unit = {},
+    onOpenChatClick: () -> Unit = {}
 ) {
     Column(
         modifier = modifier
@@ -120,6 +134,24 @@ fun MainScreenContent(
                 .padding(top = 16.dp)
         ) {
             Text("Scene List")
+        }
+
+        Button(
+            onClick = onCreateChatClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp)
+        ) {
+            Text("Create Chat")
+        }
+
+        Button(
+            onClick = onOpenChatClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp)
+        ) {
+            Text("Open Chat")
         }
     }
 }

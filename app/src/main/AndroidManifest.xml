@@ -16,6 +16,21 @@
             android:supportsRtl="true"
             android:theme="@style/Theme.Dreamescape_ai">
         <activity
+                android:name=".ChatActivity"
+                android:exported="false"
+                android:label="Chat"
+                android:theme="@style/Theme.Dreamescape_ai"/>
+        <activity
+                android:name=".CreateChatActivity"
+                android:exported="false"
+                android:label="New Chat"
+                android:theme="@style/Theme.Dreamescape_ai"/>
+        <activity
+                android:name=".ChatListActivity"
+                android:exported="false"
+                android:label="Chats"
+                android:theme="@style/Theme.Dreamescape_ai"/>
+        <activity
                 android:name=".SceneListActivity"
                 android:exported="false"
                 android:label="Scenes"

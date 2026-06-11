@@ -24,7 +24,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -37,9 +36,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.dreamescape_ai.ui.theme.Dreamescape_aiTheme
-import org.openapitools.client.models.Scene
+import org.openapitools.client.models.Chat
 
-class SceneListActivity : ComponentActivity() {
+class ChatListActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,7 +49,7 @@ class SceneListActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     topBar = {
                         TopAppBar(
-                            title = { Text("Scenes") },
+                            title = { Text("Chats") },
                             navigationIcon = {
                                 IconButton(onClick = { finish() }) {
                                     Icon(
@@ -62,14 +61,14 @@ class SceneListActivity : ComponentActivity() {
                         )
                     }
                 ) { innerPadding ->
-                    SceneListScreen(
+                    ChatListScreen(
                         modifier = Modifier.padding(innerPadding),
-                        onSceneClick = { scene ->
-                            scene.id?.let { sceneId ->
+                        onChatClick = { chat ->
+                            chat.id?.let { chatId ->
                                 startActivity(
-                                    Intent(this, CreateChatActivity::class.java).apply {
-                                        putExtra(CreateChatActivity.EXTRA_SCENE_ID, sceneId.toString())
-                                        putExtra(CreateChatActivity.EXTRA_SCENE_TITLE, scene.title)
+                                    Intent(this, ChatActivity::class.java).apply {
+                                        putExtra(ChatActivity.EXTRA_CHAT_ID, chatId.toString())
+                                        putExtra(ChatActivity.EXTRA_CHAT_TITLE, chat.title)
                                     }
                                 )
                             }
@@ -82,15 +81,15 @@ class SceneListActivity : ComponentActivity() {
 }
 
 @Composable
-fun SceneListScreen(
+fun ChatListScreen(
     modifier: Modifier = Modifier,
-    viewModel: SceneListViewModel = viewModel(),
-    onSceneClick: (Scene) -> Unit = {}
+    viewModel: ChatListViewModel = viewModel(),
+    onChatClick: (Chat) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(Unit) {
-        viewModel.loadScenes()
+        viewModel.loadChats()
     }
 
     Column(
@@ -98,16 +97,6 @@ fun SceneListScreen(
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        OutlinedTextField(
-            value = uiState.searchQuery,
-            onValueChange = viewModel::onSearchQueryChanged,
-            label = { Text("Search by name") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
         if (uiState.errorMessage != null) {
             Text(
                 text = uiState.errorMessage!!,
@@ -124,13 +113,13 @@ fun SceneListScreen(
             ) {
                 CircularProgressIndicator()
             }
-        } else if (uiState.scenes.isEmpty()) {
+        } else if (uiState.chats.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "No scenes found",
+                    text = "No chats found",
                     style = MaterialTheme.typography.bodyLarge
                 )
             }
@@ -138,8 +127,8 @@ fun SceneListScreen(
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(uiState.scenes) { scene ->
-                    SceneItem(scene = scene, onClick = { onSceneClick(scene) })
+                items(uiState.chats) { chat ->
+                    ChatItem(chat = chat, onClick = { onChatClick(chat) })
                 }
             }
         }
@@ -147,7 +136,7 @@ fun SceneListScreen(
 }
 
 @Composable
-fun SceneItem(scene: Scene, onClick: () -> Unit = {}) {
+fun ChatItem(chat: Chat, onClick: () -> Unit = {}) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -157,16 +146,9 @@ fun SceneItem(scene: Scene, onClick: () -> Unit = {}) {
             modifier = Modifier.padding(16.dp)
         ) {
             Text(
-                text = scene.title,
+                text = chat.title,
                 style = MaterialTheme.typography.titleMedium
             )
-            if (!scene.description.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = scene.description,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
         }
     }
 }
