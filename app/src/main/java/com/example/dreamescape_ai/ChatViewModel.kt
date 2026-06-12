@@ -15,6 +15,7 @@ import org.openapitools.client.models.ChatRoles
 import org.openapitools.client.models.LLMModelType
 import org.openapitools.client.models.Message
 import org.openapitools.client.models.UserMessageDTO
+import java.time.OffsetDateTime
 import java.util.UUID
 
 data class ChatUiState(
@@ -51,7 +52,7 @@ class ChatViewModel(
             try {
                 val response = loadMessagesCall(chatId)
                 _uiState.value = _uiState.value.copy(
-                    messages = response.result.items,
+                    messages = response.result.items.sortedChronologically(),
                     isLoading = false
                 )
             } catch (e: Exception) {
@@ -62,6 +63,13 @@ class ChatViewModel(
             }
         }
     }
+
+    /**
+     * Orders messages in chronological order by [Message.dateCreated].
+     * Messages without a creation timestamp are placed last while preserving their relative order.
+     */
+    private fun List<Message>.sortedChronologically(): List<Message> =
+        sortedWith(compareBy(nullsLast<OffsetDateTime>()) { it.dateCreated })
 
     fun sendMessage() {
         val text = _uiState.value.input.trim()
@@ -84,7 +92,7 @@ class ChatViewModel(
                 // Reload so the user message and the model's reply are both shown.
                 val response = loadMessagesCall(chatId)
                 _uiState.value = _uiState.value.copy(
-                    messages = response.result.items,
+                    messages = response.result.items.sortedChronologically(),
                     isSending = false
                 )
             } catch (e: Exception) {

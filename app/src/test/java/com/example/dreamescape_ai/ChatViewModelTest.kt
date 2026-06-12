@@ -21,6 +21,7 @@ import org.openapitools.client.models.LLMModelType
 import org.openapitools.client.models.Message
 import org.openapitools.client.models.PageMessage
 import org.openapitools.client.models.UserMessageDTO
+import java.time.OffsetDateTime
 import java.util.UUID
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -126,6 +127,83 @@ class ChatViewModelTest {
         assertEquals(2, viewModel.uiState.value.messages.size)
         assertFalse(viewModel.uiState.value.isLoading)
         assertNull(viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun `loadMessages sorts messages chronologically by dateCreated`() = runTest {
+        val older = OffsetDateTime.parse("2024-01-01T10:00:00Z")
+        val middle = OffsetDateTime.parse("2024-01-01T11:00:00Z")
+        val newer = OffsetDateTime.parse("2024-01-01T12:00:00Z")
+        val unordered = listOf(
+            Message(
+                message = "newest",
+                chatId = testChatId,
+                role = ChatRoles.model,
+                id = UUID.fromString("00000000-0000-0000-0000-000000000201"),
+                dateCreated = newer
+            ),
+            Message(
+                message = "oldest",
+                chatId = testChatId,
+                role = ChatRoles.user,
+                id = UUID.fromString("00000000-0000-0000-0000-000000000202"),
+                dateCreated = older
+            ),
+            Message(
+                message = "middle",
+                chatId = testChatId,
+                role = ChatRoles.model,
+                id = UUID.fromString("00000000-0000-0000-0000-000000000203"),
+                dateCreated = middle
+            )
+        )
+        val viewModel = createViewModel(onLoadMessages = { createPage(unordered) })
+
+        viewModel.loadMessages()
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("oldest", "middle", "newest"),
+            viewModel.uiState.value.messages.map { it.message }
+        )
+    }
+
+    @Test
+    fun `sendMessage returns messages sorted chronologically by dateCreated`() = runTest {
+        val older = OffsetDateTime.parse("2024-01-01T10:00:00Z")
+        val newer = OffsetDateTime.parse("2024-01-01T12:00:00Z")
+        var messagesToReturn = emptyList<Message>()
+        val viewModel = createViewModel(
+            onLoadMessages = { createPage(messagesToReturn) },
+            onSendMessage = { dto ->
+                messagesToReturn = listOf(
+                    Message(
+                        message = "Reply",
+                        chatId = dto.chatId,
+                        role = ChatRoles.model,
+                        id = UUID.randomUUID(),
+                        dateCreated = newer
+                    ),
+                    Message(
+                        message = dto.message,
+                        chatId = dto.chatId,
+                        role = ChatRoles.user,
+                        id = UUID.randomUUID(),
+                        dateCreated = older
+                    )
+                )
+                messageResponse(dto.message)
+            }
+        )
+        viewModel.onInputChanged("Hello")
+
+        viewModel.sendMessage()
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf("Hello", "Reply"),
+            viewModel.uiState.value.messages.map { it.message }
+        )
     }
 
     @Test

@@ -27,6 +27,8 @@ import com.squareup.moshi.JsonClass
  * @param chatId 
  * @param role 
  * @param id 
+ * @param dateCreated 
+ * @param dateEdited 
  */
 
 
@@ -42,7 +44,13 @@ data class Message (
     val role: ChatRoles,
 
     @Json(name = "id")
-    val id: java.util.UUID? = null
+    val id: java.util.UUID? = null,
+
+    @Json(name = "date_created")
+    val dateCreated: java.time.OffsetDateTime? = null,
+
+    @Json(name = "date_edited")
+    val dateEdited: java.time.OffsetDateTime? = null
 
 ) {
 

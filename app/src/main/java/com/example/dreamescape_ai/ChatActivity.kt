@@ -44,6 +44,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.dreamescape_ai.ui.theme.Dreamescape_aiTheme
 import org.openapitools.client.models.ChatRoles
 import org.openapitools.client.models.Message
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 class ChatActivity : ComponentActivity() {
@@ -225,10 +228,31 @@ fun MessageItem(message: Message) {
                     text = message.message,
                     style = MaterialTheme.typography.bodyMedium
                 )
+
+                val createdText = message.dateCreated?.let { formatMessageTime(it) }
+                if (createdText != null) {
+                    val isEdited = message.dateEdited != null &&
+                        message.dateEdited != message.dateCreated
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (isEdited) {
+                            "$createdText \u00b7 edited ${formatMessageTime(message.dateEdited!!)}"
+                        } else {
+                            createdText
+                        },
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
             }
         }
     }
 }
+
+private val messageTimeFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("MMM d, yyyy HH:mm")
+
+private fun formatMessageTime(dateTime: OffsetDateTime): String =
+    dateTime.atZoneSameInstant(ZoneId.systemDefault()).format(messageTimeFormatter)
 
 private fun chatViewModelFactory(chatId: UUID): ViewModelProvider.Factory =
     object : ViewModelProvider.Factory {
