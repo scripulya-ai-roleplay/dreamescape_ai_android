@@ -9,7 +9,7 @@ import java.time.Duration
  * token is verified with these settings:
  *
  * ```
- * JWT_SECRET_KEY: str = "your-secret-key-change-in-production"
+ * JWT_SECRET_KEY: str = "dev-secret-change-me"
  * JWT_PUBLIC_KEY: str = ""
  * JWT_ALGORITHM: str = "HS256"
  * ```
@@ -23,7 +23,7 @@ import java.time.Duration
 object JwtConfig {
 
     /** Shared secret used to sign/verify HS256 tokens. */
-    const val JWT_SECRET_KEY: String = "your-secret-key-change-in-production"
+    const val JWT_SECRET_KEY: String = "dev-secret-change-me"
 
     /** Public key, only used for asymmetric algorithms (unused with HS256). */
     const val JWT_PUBLIC_KEY: String = ""

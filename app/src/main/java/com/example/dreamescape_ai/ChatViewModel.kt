@@ -35,7 +35,8 @@ class ChatViewModel(
         MessagesApi().createMessageApiV1MessagesPost(dto)
     },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val llmModel: LLMModelType = LLMModelType.testing_mock
+    // TEMPORARY: pin to the latest Z.ai GLM model (glm-5.2) to smoke-test the system end-to-end.
+    private val llmModel: LLMModelType = LLMModelType.glmMinus5Period2
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())

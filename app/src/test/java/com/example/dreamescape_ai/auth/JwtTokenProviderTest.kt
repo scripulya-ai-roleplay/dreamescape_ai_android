@@ -13,7 +13,7 @@ import javax.crypto.spec.SecretKeySpec
 
 class JwtTokenProviderTest {
 
-    private val secret = "your-secret-key-change-in-production"
+    private val secret = "dev-secret-change-me"
     private val fixedInstant = Instant.ofEpochSecond(1_000_000L)
 
     private fun provider(

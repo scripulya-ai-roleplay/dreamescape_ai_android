@@ -22,7 +22,7 @@ import com.squareup.moshi.JsonClass
 /**
  * 
  *
- * Values: testing_mock,geminiMinus3MinusFlashMinusPreview,geminiMinus2Period5MinusPro,claudeMinusSonnetMinus4Minus20250514,claudeMinusHaikuMinus4Minus20250514,qwenMinusPlus,qwenMinusTurbo,qwenMinusMax
+ * Values: testing_mock,geminiMinus3MinusFlashMinusPreview,geminiMinus2Period5MinusPro,claudeMinusSonnetMinus4Minus20250514,claudeMinusHaikuMinus4Minus20250514,qwenMinusPlus,qwenMinusTurbo,qwenMinusMax,glmMinus5Period2,glmMinus4Period6,glmMinus4Period5
  */
 
 @JsonClass(generateAdapter = false)
@@ -50,7 +50,16 @@ enum class LLMModelType(val value: kotlin.String) {
     qwenMinusTurbo("qwen-turbo"),
 
     @Json(name = "qwen-max")
-    qwenMinusMax("qwen-max");
+    qwenMinusMax("qwen-max"),
+
+    @Json(name = "glm-5.2")
+    glmMinus5Period2("glm-5.2"),
+
+    @Json(name = "glm-4.6")
+    glmMinus4Period6("glm-4.6"),
+
+    @Json(name = "glm-4.5")
+    glmMinus4Period5("glm-4.5");
 
     /**
      * Override [toString()] to avoid using the enum variable name as the value, and instead use
