@@ -107,7 +107,11 @@ class CreateChatViewModelTest {
 
     @Test
     fun `createChat success exposes created chat id`() = runTest {
-        val viewModel = createViewModel { ModelApiResponse(result = "created") }
+        // The backend returns its own server-generated id in `result.id`; the app
+        // must navigate with that id, not the client-generated one.
+        val viewModel = createViewModel {
+            ModelApiResponse(result = mapOf("id" to fixedChatId.toString()))
+        }
         viewModel.onTitleChanged("My Chat")
 
         viewModel.createChat()

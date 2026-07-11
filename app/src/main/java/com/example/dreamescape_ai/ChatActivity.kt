@@ -1,6 +1,7 @@
 package com.example.dreamescape_ai
 
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -19,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -80,6 +82,22 @@ class ChatActivity : ComponentActivity() {
                                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                         contentDescription = "Back"
                                     )
+                                }
+                            },
+                            actions = {
+                                chatId?.let { id ->
+                                    IconButton(onClick = {
+                                        startActivity(
+                                            Intent(this@ChatActivity, ChatSettingsActivity::class.java).apply {
+                                                putExtra(ChatSettingsActivity.EXTRA_CHAT_ID, id.toString())
+                                            }
+                                        )
+                                    }) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Settings,
+                                            contentDescription = "Chat settings"
+                                        )
+                                    }
                                 }
                             }
                         )
@@ -165,6 +183,25 @@ fun ChatScreen(
                     }
                 }
             }
+        }
+
+        if (uiState.isThinking) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.width(16.dp),
+                    strokeWidth = 2.dp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Model is thinking… ${uiState.thinkingSeconds}s",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
         }
 
         Spacer(modifier = Modifier.height(8.dp))

@@ -87,7 +87,8 @@ class ChatViewModelTest {
             loadMessagesCall = onLoadMessages,
             sendMessageCall = onSendMessage,
             ioDispatcher = testDispatcher,
-            llmModel = LLMModelType.testing_mock
+            llmModel = LLMModelType.testing_mock,
+            waitForReply = { _, _ -> }
         )
     }
 

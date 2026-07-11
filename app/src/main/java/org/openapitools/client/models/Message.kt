@@ -16,6 +16,7 @@
 package org.openapitools.client.models
 
 import org.openapitools.client.models.ChatRoles
+import org.openapitools.client.models.MessageStatus
 
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
@@ -27,6 +28,7 @@ import com.squareup.moshi.JsonClass
  * @param chatId 
  * @param role 
  * @param id 
+ * @param status 
  * @param dateCreated 
  * @param dateEdited 
  */
@@ -45,6 +47,9 @@ data class Message (
 
     @Json(name = "id")
     val id: java.util.UUID? = null,
+
+    @Json(name = "status")
+    val status: MessageStatus? = null,
 
     @Json(name = "date_created")
     val dateCreated: java.time.OffsetDateTime? = null,

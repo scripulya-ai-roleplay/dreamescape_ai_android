@@ -50,6 +50,12 @@ class MainActivity : ComponentActivity() {
                         },
                         onOpenChatClick = {
                             startActivity(Intent(this, ChatListActivity::class.java))
+                        },
+                        onStoryGalleryClick = {
+                            startActivity(Intent(this, StoryGalleryActivity::class.java))
+                        },
+                        onMediaGalleryClick = {
+                            startActivity(Intent(this, MediaGalleryActivity::class.java))
                         }
                     )
                 }
@@ -66,7 +72,9 @@ fun MainScreen(
     onCreateSceneClick: () -> Unit = {},
     onSceneListClick: () -> Unit = {},
     onCreateChatClick: () -> Unit = {},
-    onOpenChatClick: () -> Unit = {}
+    onOpenChatClick: () -> Unit = {},
+    onStoryGalleryClick: () -> Unit = {},
+    onMediaGalleryClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -80,7 +88,9 @@ fun MainScreen(
         onCreateSceneClick = onCreateSceneClick,
         onSceneListClick = onSceneListClick,
         onCreateChatClick = onCreateChatClick,
-        onOpenChatClick = onOpenChatClick
+        onOpenChatClick = onOpenChatClick,
+        onStoryGalleryClick = onStoryGalleryClick,
+        onMediaGalleryClick = onMediaGalleryClick
     )
 
     if (uiState.showApiUnavailableDialog) {
@@ -99,7 +109,9 @@ fun MainScreenContent(
     onCreateSceneClick: () -> Unit = {},
     onSceneListClick: () -> Unit = {},
     onCreateChatClick: () -> Unit = {},
-    onOpenChatClick: () -> Unit = {}
+    onOpenChatClick: () -> Unit = {},
+    onStoryGalleryClick: () -> Unit = {},
+    onMediaGalleryClick: () -> Unit = {}
 ) {
     Column(
         modifier = modifier
@@ -152,6 +164,24 @@ fun MainScreenContent(
                 .padding(top = 16.dp)
         ) {
             Text("Open Chat")
+        }
+
+        Button(
+            onClick = onStoryGalleryClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp)
+        ) {
+            Text("Story Gallery")
+        }
+
+        Button(
+            onClick = onMediaGalleryClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp)
+        ) {
+            Text("Media Gallery")
         }
     }
 }

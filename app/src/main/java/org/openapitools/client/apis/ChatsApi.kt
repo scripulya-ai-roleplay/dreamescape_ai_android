@@ -371,6 +371,77 @@ class ChatsApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient =
     }
 
     /**
+     * Stream Chat Events
+     * Server-Sent Events stream of model-message lifecycle events for a chat.  The client opens this after POSTing a message; the completed/failed reply is pushed here when scripulya_agent answers (no polling). On connect, the latest model message is emitted as a &#x60;state&#x60; reconciliation frame so a client that connected after the reply landed (or on reconnect) can dedupe by message id.  Ownership of the chat is verified and the latest message read inside the service; that DB work happens in a short-lived session that is closed before this response starts streaming, so the SSE connection does not pin a DB connection.
+     * @param chatId 
+     * @return kotlin.Any
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
+    fun streamChatEventsApiV1ChatsChatIdEventsGet(chatId: java.util.UUID) : kotlin.Any {
+        val localVarResponse = streamChatEventsApiV1ChatsChatIdEventsGetWithHttpInfo(chatId = chatId)
+
+        return when (localVarResponse.responseType) {
+            ResponseType.Success -> (localVarResponse as Success<*>).data as kotlin.Any
+            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
+            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
+            ResponseType.ClientError -> {
+                val localVarError = localVarResponse as ClientError<*>
+                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
+            }
+            ResponseType.ServerError -> {
+                val localVarError = localVarResponse as ServerError<*>
+                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()} ${localVarError.body}", localVarError.statusCode, localVarResponse)
+            }
+        }
+    }
+
+    /**
+     * Stream Chat Events
+     * Server-Sent Events stream of model-message lifecycle events for a chat.  The client opens this after POSTing a message; the completed/failed reply is pushed here when scripulya_agent answers (no polling). On connect, the latest model message is emitted as a &#x60;state&#x60; reconciliation frame so a client that connected after the reply landed (or on reconnect) can dedupe by message id.  Ownership of the chat is verified and the latest message read inside the service; that DB work happens in a short-lived session that is closed before this response starts streaming, so the SSE connection does not pin a DB connection.
+     * @param chatId 
+     * @return ApiResponse<kotlin.Any?>
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class)
+    fun streamChatEventsApiV1ChatsChatIdEventsGetWithHttpInfo(chatId: java.util.UUID) : ApiResponse<kotlin.Any?> {
+        val localVariableConfig = streamChatEventsApiV1ChatsChatIdEventsGetRequestConfig(chatId = chatId)
+
+        return request<Unit, kotlin.Any>(
+            localVariableConfig
+        )
+    }
+
+    /**
+     * To obtain the request config of the operation streamChatEventsApiV1ChatsChatIdEventsGet
+     *
+     * @param chatId 
+     * @return RequestConfig
+     */
+    fun streamChatEventsApiV1ChatsChatIdEventsGetRequestConfig(chatId: java.util.UUID) : RequestConfig<Unit> {
+        val localVariableBody = null
+        val localVariableQuery: MultiValueMap = mutableMapOf()
+        val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Accept"] = "application/json"
+
+        return RequestConfig(
+            method = RequestMethod.GET,
+            path = "/api/v1/chats/{chat_id}/events".replace("{"+"chat_id"+"}", encodeURIComponent(chatId.toString())),
+            query = localVariableQuery,
+            headers = localVariableHeaders,
+            requiresAuthentication = true,
+            body = localVariableBody
+        )
+    }
+
+    /**
      * Update Chat
      * 
      * @param chatId 

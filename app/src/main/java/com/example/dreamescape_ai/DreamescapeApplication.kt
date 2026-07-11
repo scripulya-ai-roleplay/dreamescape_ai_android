@@ -1,7 +1,10 @@
 package com.example.dreamescape_ai
 
 import android.app.Application
+import coil.Coil
+import coil.ImageLoader
 import com.example.dreamescape_ai.auth.JwtAuthInterceptor
+import okhttp3.OkHttpClient
 import org.openapitools.client.infrastructure.ApiClient
 
 /**
@@ -12,6 +15,11 @@ import org.openapitools.client.infrastructure.ApiClient
  *    the Android emulator through the special alias 10.0.2.2;
  *  * a [JwtAuthInterceptor] is installed so every request carries a JWT Bearer
  *    token, satisfying the backend's HTTP Bearer security scheme.
+ *
+ * Coil's shared [ImageLoader] uses a *plain* OkHttp client (no JWT interceptor):
+ * media URLs are MinIO presigned/public URLs, and adding an Authorization header
+ * to a presigned URL makes MinIO reject it (S3 forbids mixing query-string and
+ * header auth).
  */
 class DreamescapeApplication : Application() {
 
@@ -19,6 +27,7 @@ class DreamescapeApplication : Application() {
         super.onCreate()
         System.setProperty(ApiClient.baseUrlKey, BACKEND_BASE_URL)
         registerJwtAuthentication()
+        configureImageLoader()
     }
 
     /**
@@ -34,6 +43,21 @@ class DreamescapeApplication : Application() {
         if (!alreadyRegistered) {
             ApiClient.builder.addInterceptor(JwtAuthInterceptor())
         }
+    }
+
+    /**
+     * Configures Coil's shared [ImageLoader] with a plain OkHttp client — NOT the
+     * authed [ApiClient.defaultClient]. Media URLs are MinIO presigned (private)
+     * or public URLs; a presigned URL carries its signature in the query string,
+     * and MinIO rejects the request (HTTP 400) if an `Authorization` header is
+     * also present. So image requests must carry no Authorization header.
+     */
+    private fun configureImageLoader() {
+        Coil.setImageLoader(
+            ImageLoader.Builder(this)
+                .okHttpClient { OkHttpClient.Builder().build() }
+                .build()
+        )
     }
 
     companion object {

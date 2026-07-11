@@ -49,9 +49,10 @@ class CreateChatViewModel(
             return
         }
 
-        // The chat id is generated client-side so the screen knows which chat to
-        // open once the backend confirms creation. The backend persists the id we
-        // send because `id` is a writable field of the Chat request body.
+        // A client id is attached to the request body, but the backend generates
+        // and persists its OWN id (returned in the response) — it does not honor
+        // the one we send. We must navigate using the server id, or subsequent
+        // calls (messages, events) would target a non-existent chat and 404.
         val newChatId = chatIdProvider()
         val chat = Chat(
             title = _uiState.value.title.trim(),
@@ -64,8 +65,16 @@ class CreateChatViewModel(
 
         viewModelScope.launch(ioDispatcher) {
             try {
-                createChatCall(chat)
-                _uiState.value = _uiState.value.copy(isLoading = false, createdChatId = newChatId)
+                val response = createChatCall(chat)
+                val serverChatId = extractCreatedChatId(response)
+                if (serverChatId == null) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        errorMessage = "Chat was created but the response did not include its id."
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(isLoading = false, createdChatId = serverChatId)
+                }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -73,5 +82,16 @@ class CreateChatViewModel(
                 )
             }
         }
+    }
+
+    /**
+     * The create-chat response is `{"result":{"id":"<uuid>"}, "correlation_id": …}`.
+     * [ModelApiResponse.result] is untyped (`Any?`), which Moshi deserializes as a
+     * `Map<String, Any?>` for a JSON object, so the server-assigned id is pulled
+     * out of it. Returns null if the shape is unexpected.
+     */
+    private fun extractCreatedChatId(response: ModelApiResponse): UUID? {
+        val idRaw = (response.result as? Map<*, *>)?.get("id")
+        return idRaw?.toString()?.let { runCatching { UUID.fromString(it) }.getOrNull() }
     }
 }
