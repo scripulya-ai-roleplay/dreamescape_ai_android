@@ -51,6 +51,11 @@
                 android:label="Create Character"
                 android:theme="@style/Theme.Dreamescape_ai"/>
         <activity
+                android:name=".CharacterPreviewActivity"
+                android:exported="false"
+                android:label="Character"
+                android:theme="@style/Theme.Dreamescape_ai"/>
+        <activity
                 android:name=".StoryGalleryActivity"
                 android:exported="false"
                 android:label="Stories"

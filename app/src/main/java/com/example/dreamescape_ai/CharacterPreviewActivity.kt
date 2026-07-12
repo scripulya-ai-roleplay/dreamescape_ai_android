@@ -1,17 +1,13 @@
 package com.example.dreamescape_ai
 
-import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,17 +16,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -47,7 +38,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -58,10 +48,10 @@ import coil.compose.AsyncImage
 import com.example.dreamescape_ai.ui.theme.Dreamescape_aiTheme
 import java.util.UUID
 
-class ScenePreviewActivity : ComponentActivity() {
+class CharacterPreviewActivity : ComponentActivity() {
 
     companion object {
-        const val EXTRA_SCENE_ID = "extra_scene_id"
+        const val EXTRA_CHARACTER_ID = "extra_character_id"
     }
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -69,19 +59,17 @@ class ScenePreviewActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val sceneId: UUID? = intent.getStringExtra(EXTRA_SCENE_ID)?.let {
+        val characterId: UUID? = intent.getStringExtra(EXTRA_CHARACTER_ID)?.let {
             runCatching { UUID.fromString(it) }.getOrNull()
         }
 
         setContent {
             Dreamescape_aiTheme {
-                // No top bar: the hero image is the top of the screen, so we drop
-                // the default scaffold insets and let the hero go edge-to-edge.
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     contentWindowInsets = WindowInsets(0, 0, 0, 0)
                 ) { innerPadding ->
-                    if (sceneId == null) {
+                    if (characterId == null) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -90,14 +78,14 @@ class ScenePreviewActivity : ComponentActivity() {
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "No scene selected.",
+                                text = "No character selected.",
                                 color = MaterialTheme.colorScheme.error,
                                 style = MaterialTheme.typography.bodyLarge
                             )
                         }
                     } else {
-                        ScenePreviewScreen(
-                            sceneId = sceneId,
+                        CharacterPreviewScreen(
+                            characterId = characterId,
                             onBack = { finish() },
                             modifier = Modifier
                                 .fillMaxSize()
@@ -111,29 +99,28 @@ class ScenePreviewActivity : ComponentActivity() {
 }
 
 @Composable
-fun ScenePreviewScreen(
-    sceneId: UUID,
+fun CharacterPreviewScreen(
+    characterId: UUID,
     onBack: () -> Unit = {},
     modifier: Modifier = Modifier,
-    viewModel: ScenePreviewViewModel = viewModel(
-        factory = scenePreviewViewModelFactory(sceneId)
+    viewModel: CharacterPreviewViewModel = viewModel(
+        factory = characterPreviewViewModelFactory(characterId)
     )
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val context = LocalContext.current
 
     Column(
         modifier = modifier.verticalScroll(rememberScrollState())
     ) {
-        SceneHero(
-            title = uiState.scene?.title ?: "Title there",
-            imageUrl = uiState.heroImageUrl,
-            isLoading = uiState.scene == null && uiState.isLoading,
+        CharacterHero(
+            title = uiState.character?.name ?: "Name there",
+            imageUrl = uiState.portraitUrl,
+            isLoading = uiState.character == null && uiState.isLoading,
             onBack = onBack
         )
 
         val errorMessage = uiState.errorMessage
-        if (uiState.scene == null && errorMessage != null) {
+        if (uiState.character == null && errorMessage != null) {
             Text(
                 text = errorMessage,
                 color = MaterialTheme.colorScheme.error,
@@ -142,31 +129,18 @@ fun ScenePreviewScreen(
             )
         }
 
-        CharacterCarouselSection(
-            characters = uiState.characters,
-            onCharacterClick = { card ->
-                card.character.id?.let { id ->
-                    context.startActivity(
-                        Intent(context, CharacterPreviewActivity::class.java).apply {
-                            putExtra(CharacterPreviewActivity.EXTRA_CHARACTER_ID, id.toString())
-                        }
-                    )
-                }
-            }
-        )
-
-        DescriptionSection(uiState = uiState)
+        CharacterDescriptionSection(uiState = uiState)
 
         Spacer(modifier = Modifier.navigationBarsPadding())
     }
 }
 
 /**
- * Top header: a large, full-bleed hero image with the title overlaid at the
- * bottom-left and a floating back button at the top-left.
+ * Top header: a large, full-bleed portrait with the character name overlaid at
+ * the bottom-left and a floating back button at the top-left.
  */
 @Composable
-private fun SceneHero(
+private fun CharacterHero(
     title: String,
     imageUrl: String?,
     isLoading: Boolean,
@@ -204,7 +178,7 @@ private fun SceneHero(
             }
         }
 
-        // Bottom scrim so the title stays legible over any image.
+        // Bottom scrim so the name stays legible over any image.
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -247,83 +221,9 @@ private fun SceneHero(
 }
 
 @Composable
-private fun CharacterCarouselSection(
-    characters: List<CharacterCardState>,
-    onCharacterClick: (CharacterCardState) -> Unit
-) {
-    if (characters.isEmpty()) return
-
-    Text(
-        text = "Characters",
-        color = MaterialTheme.colorScheme.onBackground,
-        fontWeight = FontWeight.Bold,
-        style = MaterialTheme.typography.titleMedium,
-        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
-    )
-
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        items(characters, key = { it.character.id ?: it.character.name }) { card ->
-            CharacterCard(card = card, onClick = { onCharacterClick(card) })
-        }
-    }
-}
-
-/** A small, vertically-oriented (portrait) rectangular card for one character. */
-@Composable
-private fun CharacterCard(card: CharacterCardState, onClick: () -> Unit = {}) {
-    Column(
-        modifier = Modifier
-            .width(120.dp)
-            .clickable { onClick() }
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(0.66f)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center
-        ) {
-            val url = card.imageUrl
-            if (url != null) {
-                AsyncImage(
-                    model = url,
-                    contentDescription = card.character.name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Filled.Person,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(36.dp)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Text(
-            text = card.character.name,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-@Composable
-private fun DescriptionSection(uiState: ScenePreviewUiState) {
-    val scene = uiState.scene
-    val description = scene?.description?.takeIf { it.isNotBlank() }
-        ?: scene?.backgroundPrompt?.takeIf { it.isNotBlank() }
-        ?: "Description of the story"
+private fun CharacterDescriptionSection(uiState: CharacterPreviewUiState) {
+    val description = uiState.character?.systemPrompt?.takeIf { it.isNotBlank() }
+        ?: "No description available."
 
     Text(
         text = "Description",
@@ -341,10 +241,10 @@ private fun DescriptionSection(uiState: ScenePreviewUiState) {
     )
 }
 
-private fun scenePreviewViewModelFactory(sceneId: UUID): ViewModelProvider.Factory =
+private fun characterPreviewViewModelFactory(characterId: UUID): ViewModelProvider.Factory =
     object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return ScenePreviewViewModel(sceneId = sceneId) as T
+            return CharacterPreviewViewModel(characterId = characterId) as T
         }
     }
