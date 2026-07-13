@@ -2,6 +2,7 @@ package com.example.dreamescape_ai
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.dreamescape_ai.auth.JwtTokenProvider
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -9,13 +10,17 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.openapitools.client.apis.CharactersApi
+import org.openapitools.client.apis.ChatsApi
 import org.openapitools.client.apis.MediaApi
 import org.openapitools.client.apis.ScenesApi
 import org.openapitools.client.models.ApiResponsePageCharacter
+import org.openapitools.client.models.ApiResponsePageChat
 import org.openapitools.client.models.ApiResponsePageMediaAssetDTO
 import org.openapitools.client.models.ApiResponseScene
 import org.openapitools.client.models.Character
+import org.openapitools.client.models.Chat
 import org.openapitools.client.models.MediaEntityType
+import org.openapitools.client.models.ModelApiResponse
 import org.openapitools.client.models.Scene
 import java.util.UUID
 
@@ -32,7 +37,11 @@ data class ScenePreviewUiState(
     val heroImageResolved: Boolean = false,
     val characters: List<CharacterCardState> = emptyList(),
     val isLoading: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val isCreatingChat: Boolean = false,
+    val chatCreationError: String? = null,
+    val createdChatId: UUID? = null,
+    val createdChatTitle: String? = null
 )
 
 class ScenePreviewViewModel(
@@ -52,6 +61,14 @@ class ScenePreviewViewModel(
     private val characterImageCall: (UUID) -> ApiResponsePageMediaAssetDTO = { entityId ->
         MediaApi().searchMediaApiV1MediaGet(entityType = MediaEntityType.character, entityId = entityId, limit = 1)
     },
+    private val userId: UUID = JwtTokenProvider().userId,
+    private val searchChatsCall: (userIds: List<UUID>?, offset: Int?, limit: Int?) -> ApiResponsePageChat = { userIds, offset, limit ->
+        ChatsApi().searchChatsApiV1ChatsGet(userIds = userIds, offset = offset, limit = limit)
+    },
+    private val createChatCall: (Chat) -> ModelApiResponse = { chat ->
+        ChatsApi().createChatApiV1ChatsPost(chat)
+    },
+    private val chatIdProvider: () -> UUID = { UUID.randomUUID() },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
 
@@ -78,6 +95,67 @@ class ScenePreviewViewModel(
                 )
             }
         }
+    }
+
+    /**
+     * Creates a chat for this scene with a generic name ("Chat #N", where N is
+     * derived from how many chats the user already has) and exposes the
+     * server-assigned chat id via [ScenePreviewUiState.createdChatId] so the
+     * screen can navigate to it. Mirrors CreateChatViewModel: the backend mints
+     * its own id, so the id attached to the request body is ignored.
+     */
+    fun startChat() {
+        if (_uiState.value.isCreatingChat) return
+        _uiState.value = _uiState.value.copy(isCreatingChat = true, chatCreationError = null)
+
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                val title = "Chat #${countExistingChats() + 1}"
+                val chat = Chat(
+                    title = title,
+                    userId = userId,
+                    sceneId = sceneId,
+                    id = chatIdProvider()
+                )
+                val response = createChatCall(chat)
+                val serverChatId = extractCreatedChatId(response)
+                if (serverChatId == null) {
+                    _uiState.value = _uiState.value.copy(
+                        isCreatingChat = false,
+                        chatCreationError = "Chat was created but the response did not include its id."
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        isCreatingChat = false,
+                        createdChatId = serverChatId,
+                        createdChatTitle = title
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isCreatingChat = false,
+                    chatCreationError = e.message ?: "Failed to create chat"
+                )
+            }
+        }
+    }
+
+    /** How many chats the user already has; failures fall back to 0. */
+    private suspend fun countExistingChats(): Int =
+        try {
+            searchChatsCall(listOf(userId), 0, 100).result.items.size
+        } catch (_: Exception) {
+            0
+        }
+
+    /**
+     * The create-chat response is `{"result":{"id":"<uuid>"}, ...}`. The result
+     * is untyped (`Any?`), which Moshi deserializes as a `Map<String, Any?>` for
+     * a JSON object, so the server-assigned id is pulled out of it.
+     */
+    private fun extractCreatedChatId(response: ModelApiResponse): UUID? {
+        val idRaw = (response.result as? Map<*, *>)?.get("id")
+        return idRaw?.toString()?.let { runCatching { UUID.fromString(it) }.getOrNull() }
     }
 
     /**

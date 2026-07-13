@@ -25,6 +25,7 @@ import org.openapitools.client.models.MessageStatus
 import org.openapitools.client.models.UserMessageDTO
 import java.time.OffsetDateTime
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 data class ChatUiState(
     val messages: List<Message> = emptyList(),
@@ -186,16 +187,25 @@ class ChatViewModel(
      */
     private fun connectEvents(knownIds: Set<UUID>, pendingId: UUID?) {
         eventsCall?.cancel()
+        // SSE streams sit idle between events. The shared client's default 10s
+        // read timeout is shorter than the server's 15s keepalive, so it would
+        // cut the stream before the reply (or even a keepalive) ever arrived.
+        // Derive a no-read-timeout client from the authed shared one so the
+        // stream survives until the reply or a keepalive lands.
+        val sseClient = ApiClient.defaultClient.newBuilder()
+            .readTimeout(0, TimeUnit.SECONDS)
+            .build()
         val request = Request.Builder()
             .url("${DreamescapeApplication.BACKEND_BASE_URL}/api/v1/chats/$chatId/events")
             .header("Accept", "text/event-stream")
             .build()
-        val call = ApiClient.defaultClient.newCall(request)
+        val call = sseClient.newCall(request)
         eventsCall = call
 
         viewModelScope.launch(ioDispatcher) {
             var eventName = ""
             val data = StringBuilder()
+            var replyHandled = false
             try {
                 call.execute().use { response ->
                     if (!response.isSuccessful) return@launch
@@ -212,6 +222,7 @@ class ChatViewModel(
                                 if (data.isNotEmpty() &&
                                     isTerminalReply(eventName, data.toString(), knownIds, pendingId)
                                 ) {
+                                    replyHandled = true
                                     reloadAfterReply()
                                     return@launch
                                 }
@@ -223,10 +234,14 @@ class ChatViewModel(
                     }
                 }
             } catch (_: Exception) {
-                // Stream failed or was canceled; the post-send reload covers the user
-                // message, and a later reload will pick up any reply that landed.
+                // Stream failed or was canceled; the reconcile in finally still
+                // picks up any reply that landed.
             } finally {
                 stopThinking()
+                // If the stream ended without a terminal frame (close, cancel,
+                // or a reply that slipped through), reconcile once more so the
+                // user needn't re-enter the chat to see the reply.
+                if (!replyHandled) reloadAfterReply()
             }
         }
     }

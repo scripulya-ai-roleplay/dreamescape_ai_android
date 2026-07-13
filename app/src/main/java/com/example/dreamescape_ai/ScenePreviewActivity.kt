@@ -31,6 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -39,6 +40,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -122,6 +124,18 @@ fun ScenePreviewScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
+    // When the ViewModel finishes creating a chat, navigate to it. Keyed on the
+    // chat id so it fires once per created chat and is skipped while null.
+    LaunchedEffect(uiState.createdChatId) {
+        val chatId = uiState.createdChatId ?: return@LaunchedEffect
+        context.startActivity(
+            Intent(context, ChatActivity::class.java).apply {
+                putExtra(ChatActivity.EXTRA_CHAT_ID, chatId.toString())
+                putExtra(ChatActivity.EXTRA_CHAT_TITLE, uiState.createdChatTitle ?: "Chat")
+            }
+        )
+    }
+
     Column(
         modifier = modifier.verticalScroll(rememberScrollState())
     ) {
@@ -156,6 +170,12 @@ fun ScenePreviewScreen(
         )
 
         DescriptionSection(uiState = uiState)
+
+        StartChatSection(
+            isCreating = uiState.isCreatingChat,
+            errorMessage = uiState.chatCreationError,
+            onStartChat = viewModel::startChat
+        )
 
         Spacer(modifier = Modifier.navigationBarsPadding())
     }
@@ -339,6 +359,36 @@ private fun DescriptionSection(uiState: ScenePreviewUiState) {
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.padding(horizontal = 16.dp)
     )
+}
+
+@Composable
+private fun StartChatSection(
+    isCreating: Boolean,
+    errorMessage: String?,
+    onStartChat: () -> Unit
+) {
+    Button(
+        onClick = onStartChat,
+        enabled = !isCreating,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 24.dp, start = 16.dp, end = 16.dp)
+    ) {
+        if (isCreating) {
+            CircularProgressIndicator()
+        } else {
+            Text("Start Chat")
+        }
+    }
+
+    if (errorMessage != null) {
+        Text(
+            text = errorMessage,
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+    }
 }
 
 private fun scenePreviewViewModelFactory(sceneId: UUID): ViewModelProvider.Factory =
