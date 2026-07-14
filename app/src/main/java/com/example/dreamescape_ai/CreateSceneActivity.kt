@@ -1,5 +1,7 @@
 package com.example.dreamescape_ai
 
+import android.content.Context
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -27,9 +29,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.dreamescape_ai.ui.components.ImagePickerSection
 import com.example.dreamescape_ai.ui.theme.Dreamescape_aiTheme
+import org.openapitools.client.models.MediaEntityType
 
 class CreateSceneActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
@@ -67,9 +74,10 @@ class CreateSceneActivity : ComponentActivity() {
 @Composable
 fun CreateSceneScreen(
     modifier: Modifier = Modifier,
-    viewModel: CreateSceneViewModel = viewModel(),
     onSceneCreated: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val viewModel: CreateSceneViewModel = viewModel(factory = createSceneViewModelFactory(context))
     val uiState by viewModel.uiState.collectAsState()
 
     if (uiState.isSuccess) {
@@ -129,6 +137,14 @@ fun CreateSceneScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        ImagePickerSection(
+            imageUris = uiState.imageUris,
+            onAddImages = viewModel::onImagesAdded,
+            onRemoveImage = viewModel::onImageRemoved
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         if (uiState.errorMessage != null) {
             Text(
                 text = uiState.errorMessage!!,
@@ -151,3 +167,14 @@ fun CreateSceneScreen(
         }
     }
 }
+
+private fun createSceneViewModelFactory(context: Context): ViewModelProvider.Factory =
+    object : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T =
+            CreateSceneViewModel(
+                uploadImage = { id, uri, isPublic ->
+                    MediaUploader.uploadUri(context, Uri.parse(uri), MediaEntityType.scene, id, isPublic)
+                }
+            ) as T
+    }

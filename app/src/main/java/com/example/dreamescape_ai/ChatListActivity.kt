@@ -140,8 +140,8 @@ fun ChatListScreen(
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(uiState.chats) { chat ->
-                    ChatItem(chat = chat, onClick = { onChatClick(chat) })
+                items(uiState.groups, key = { it.sceneId }) { group ->
+                    ChatGroupItem(group = group, onClick = { onChatClick(group.latestChat) })
                 }
             }
         }
@@ -149,7 +149,7 @@ fun ChatListScreen(
 }
 
 @Composable
-fun ChatItem(chat: Chat, onClick: () -> Unit = {}) {
+fun ChatGroupItem(group: ChatGroup, onClick: () -> Unit = {}) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -173,15 +173,21 @@ fun ChatItem(chat: Chat, onClick: () -> Unit = {}) {
                 modifier = Modifier.size(22.dp)
             )
         }
-        Text(
-            text = chat.title,
-            color = ScripulyaText,
-            fontWeight = FontWeight.SemiBold,
-            style = MaterialTheme.typography.titleMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = group.title,
+                color = ScripulyaText,
+                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = if (group.chatCount == 1) "1 chat" else "${group.chatCount} chats",
+                color = ScripulyaTextDim,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,

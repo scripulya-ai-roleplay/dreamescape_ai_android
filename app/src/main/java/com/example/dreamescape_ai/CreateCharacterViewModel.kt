@@ -2,6 +2,7 @@ package com.example.dreamescape_ai
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.dreamescape_ai.auth.JwtTokenProvider
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,11 +12,14 @@ import kotlinx.coroutines.launch
 import org.openapitools.client.apis.CharactersApi
 import org.openapitools.client.models.Character
 import org.openapitools.client.models.ModelApiResponse
+import java.io.IOException
+import java.util.UUID
 
 data class CreateCharacterUiState(
     val name: String = "",
     val systemPrompt: String = "",
     val isPublic: Boolean = false,
+    val imageUris: List<String> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val isSuccess: Boolean = false
@@ -25,11 +29,24 @@ class CreateCharacterViewModel(
     private val createCharacterCall: (Character) -> ModelApiResponse = { character ->
         CharactersApi().createCharacterApiV1CharactersPost(character)
     },
-    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+    private val uploadImage: (entityId: UUID, uri: String, isPublic: Boolean) -> Unit = { _, _, _ -> },
+    private val findCreatedId: (name: String) -> UUID? = { name ->
+        CharactersApi().searchCharacterApiV1CharactersGet(
+            ownerIds = listOf(JwtTokenProvider().userId), names = listOf(name), limit = 50
+        ).result.items.lastOrNull { it.name == name }?.id
+    },
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val ownerId: UUID = JwtTokenProvider().userId
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CreateCharacterUiState())
     val uiState: StateFlow<CreateCharacterUiState> = _uiState.asStateFlow()
+
+    // Creation progress so a retry after a failed image upload doesn't re-create
+    // (and duplicate) the character.
+    private var entityCreated: Boolean = false
+    private var createdEntityId: UUID? = null
+    private val uploadedUris: MutableSet<String> = mutableSetOf()
 
     fun onNameChanged(name: String) {
         _uiState.value = _uiState.value.copy(name = name, errorMessage = null)
@@ -41,6 +58,21 @@ class CreateCharacterViewModel(
 
     fun onIsPublicChanged(isPublic: Boolean) {
         _uiState.value = _uiState.value.copy(isPublic = isPublic, errorMessage = null)
+    }
+
+    fun onImagesAdded(uris: List<String>) {
+        _uiState.value = _uiState.value.copy(
+            imageUris = _uiState.value.imageUris + uris,
+            errorMessage = null
+        )
+    }
+
+    fun onImageRemoved(index: Int) {
+        val current = _uiState.value.imageUris.toMutableList()
+        if (index !in current.indices) return
+        val removed = current.removeAt(index)
+        uploadedUris.remove(removed)
+        _uiState.value = _uiState.value.copy(imageUris = current, errorMessage = null)
     }
 
     fun validate(): String? {
@@ -60,7 +92,10 @@ class CreateCharacterViewModel(
         }
 
         val state = _uiState.value
+        if (state.isLoading) return
+
         val character = Character(
+            ownerId = ownerId,
             name = state.name.trim(),
             systemPrompt = state.systemPrompt.trim(),
             isPublic = state.isPublic
@@ -70,7 +105,27 @@ class CreateCharacterViewModel(
 
         viewModelScope.launch(ioDispatcher) {
             try {
-                createCharacterCall(character)
+                // The create endpoint returns no id, so the character must be
+                // created before its images can be attached.
+                if (!entityCreated) {
+                    createCharacterCall(character)
+                    entityCreated = true
+                }
+
+                val pending = _uiState.value.imageUris
+                if (pending.isNotEmpty()) {
+                    val entityId = createdEntityId
+                        ?: findCreatedId(character.name)
+                            ?: throw IOException("Created, but couldn't attach images (character id not found)")
+                    createdEntityId = entityId
+                    // Upload in order: the first uploaded image becomes the preview.
+                    for (uri in pending) {
+                        if (uri in uploadedUris) continue
+                        uploadImage(entityId, uri, state.isPublic)
+                        uploadedUris.add(uri)
+                    }
+                }
+
                 _uiState.value = _uiState.value.copy(isLoading = false, isSuccess = true)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(

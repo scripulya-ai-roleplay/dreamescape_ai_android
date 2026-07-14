@@ -1,5 +1,7 @@
 package com.example.dreamescape_ai
 
+import android.content.Context
+import android.net.Uri
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.Request
@@ -57,5 +59,42 @@ object MediaUploader {
             return Serializer.moshi.adapter(ApiResponseMediaAssetDTO::class.java).fromJson(raw)
                 ?: throw IOException("Failed to parse media upload response")
         }
+    }
+
+    /**
+     * Convenience overload for a content [Uri] (e.g. from the Photo Picker): copies
+     * the stream into a cache temp file, uploads it, then deletes the temp file.
+     */
+    fun uploadUri(
+        context: Context,
+        uri: Uri,
+        entityType: MediaEntityType,
+        entityId: UUID,
+        isPublic: Boolean?
+    ): ApiResponseMediaAssetDTO {
+        val mimeType = mimeTypeOf(context, uri) ?: "image/jpeg"
+        val file = copyUriToCacheFile(context, uri, mimeType)
+        return try {
+            upload(file, mimeType, entityType, entityId, isPublic)
+        } finally {
+            file.delete()
+        }
+    }
+
+    private fun mimeTypeOf(context: Context, uri: Uri): String? =
+        runCatching { context.contentResolver.getType(uri) }.getOrNull()
+
+    private fun copyUriToCacheFile(context: Context, uri: Uri, mimeType: String): File {
+        val ext = when {
+            mimeType.contains("png", ignoreCase = true) -> ".png"
+            mimeType.contains("webp", ignoreCase = true) -> ".webp"
+            mimeType.contains("gif", ignoreCase = true) -> ".gif"
+            else -> ".jpg"
+        }
+        val file = File.createTempFile("upload_", ext, context.cacheDir)
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            file.outputStream().use { output -> input.copyTo(output) }
+        } ?: throw IOException("Cannot read selected image: $uri")
+        return file
     }
 }

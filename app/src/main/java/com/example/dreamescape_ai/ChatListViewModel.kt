@@ -16,8 +16,21 @@ import java.util.UUID
 
 data class ChatListUiState(
     val chats: List<Chat> = emptyList(),
+    val groups: List<ChatGroup> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null
+)
+
+/**
+ * One row per scene in the messages section. The individual chats for a scene
+ * are collapsed into a single group; selecting it opens [latestChat] (the most
+ * recently created chat for that scene).
+ */
+data class ChatGroup(
+    val sceneId: UUID,
+    val title: String,
+    val chatCount: Int,
+    val latestChat: Chat
 )
 
 class ChatListViewModel(
@@ -37,8 +50,10 @@ class ChatListViewModel(
         viewModelScope.launch(ioDispatcher) {
             try {
                 val response = searchChatsCall(listOf(userId), 0, 50)
+                val chats = response.result.items
                 _uiState.value = _uiState.value.copy(
-                    chats = response.result.items,
+                    chats = chats,
+                    groups = groupByScene(chats),
                     isLoading = false
                 )
             } catch (e: Exception) {
@@ -49,4 +64,17 @@ class ChatListViewModel(
             }
         }
     }
+
+    /**
+     * Collapses [chats] into one group per scene, ordered most-recently-active
+     * first. The backend lists chats oldest-first, so each group's last chat is
+     * its newest — that is the [ChatGroup.latestChat] selecting the scene opens.
+     */
+    private fun groupByScene(chats: List<Chat>): List<ChatGroup> =
+        chats.groupBy { it.sceneId }.values
+            .sortedByDescending { group -> chats.indexOf(group.last()) }
+            .map { group ->
+                val latest = group.last()
+                ChatGroup(latest.sceneId, latest.title, group.size, latest)
+            }
 }

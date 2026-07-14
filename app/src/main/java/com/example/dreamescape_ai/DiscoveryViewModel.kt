@@ -23,7 +23,13 @@ import java.util.UUID
 data class DiscoveryUiState(
     val sections: List<FeedSection> = emptyList(),
     val isLoading: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    /** Offset of the next "Recently Released" page to fetch. */
+    val recentOffset: Int = 0,
+    /** Whether more scenes can still be loaded into Recently Released. */
+    val recentHasMore: Boolean = false,
+    /** True while a "Recently Released" page is being fetched. */
+    val recentIsLoadingMore: Boolean = false
 )
 
 /**
@@ -64,12 +70,18 @@ class DiscoveryViewModel(
         _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
         viewModelScope.launch(ioDispatcher) {
             try {
-                val scenes = searchScenes(0, 50).result.items
+                val scenes = searchScenes(0, INITIAL_LIMIT).result.items
                 val handleByOwner = resolveHandles(scenes.map { it.ownerId }.distinct())
                 val stories = scenes.map { it.toStoryItem(handleByOwner) }
+                // Only the first page of scenes is shown in Recently Released up
+                // front; the rest stream in on scroll via loadMoreRecent().
+                val recentShown = minOf(RECENT_PAGE_SIZE, scenes.size)
                 _uiState.value = _uiState.value.copy(
                     sections = buildSections(stories),
-                    isLoading = false
+                    isLoading = false,
+                    recentOffset = recentShown,
+                    recentHasMore = scenes.size > recentShown || scenes.size >= INITIAL_LIMIT,
+                    recentIsLoadingMore = false
                 )
                 resolveCovers(scenes)
             } catch (e: Exception) {
@@ -77,6 +89,39 @@ class DiscoveryViewModel(
                     isLoading = false,
                     errorMessage = e.message ?: "Failed to load stories"
                 )
+            }
+        }
+    }
+
+    /**
+     * Fetches the next page of scenes for the "Recently Released" waterfall and
+     * appends them in creation order (the backend's natural listing order). The
+     * Scene DTO exposes no timestamp, so the API's default ordering is the only
+     * source of "chronological" available.
+     */
+    fun loadMoreRecent() {
+        val current = _uiState.value
+        if (!current.recentHasMore || current.recentIsLoadingMore) return
+        _uiState.value = current.copy(recentIsLoadingMore = true)
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                val offset = current.recentOffset
+                val scenes = searchScenes(offset, RECENT_PAGE_SIZE).result.items
+                val handleByOwner = resolveHandles(scenes.map { it.ownerId }.distinct())
+                val more = scenes.map { it.toStoryItem(handleByOwner) }
+                val updated = _uiState.value.sections.map { section ->
+                    if (section.title == SECTION_RECENT) section.copy(stories = section.stories + more)
+                    else section
+                }
+                _uiState.value = _uiState.value.copy(
+                    sections = updated,
+                    recentOffset = offset + scenes.size,
+                    recentHasMore = scenes.size >= RECENT_PAGE_SIZE,
+                    recentIsLoadingMore = false
+                )
+                resolveCovers(scenes)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(recentIsLoadingMore = false)
             }
         }
     }
@@ -102,15 +147,18 @@ class DiscoveryViewModel(
         tags = emptyList()    // backend exposes no content tags yet
     )
 
-    /** Rotates stories across the four sections so each shows distinct content. */
+    /** Rotates stories across the carousel sections so each shows distinct
+     *  content. Recently Released is left out of the rotation — it is a lazy,
+     *  paginated feed that starts with only the first [RECENT_PAGE_SIZE] scenes
+     *  (enough to fill the screen) and streams the rest in via [loadMoreRecent]. */
     private fun buildSections(stories: List<StoryItem>): List<FeedSection> {
         val buckets = Array(4) { mutableListOf<StoryItem>() }
         stories.forEachIndexed { i, story -> buckets[i % 4].add(story) }
         return listOf(
             FeedSection(SECTION_MESSAGES, buckets[0].toList()),
             FeedSection(SECTION_LIKES, buckets[1].toList()),
-            FeedSection(SECTION_RECENT, buckets[2].toList()),
-            FeedSection(SECTION_LUCKY, buckets[3].toList())
+            FeedSection(SECTION_LUCKY, buckets[3].toList()),
+            FeedSection(SECTION_RECENT, stories.take(RECENT_PAGE_SIZE))
         )
     }
 
@@ -146,6 +194,12 @@ class DiscoveryViewModel(
         const val SECTION_LIKES = "Most Liked Today"
         const val SECTION_RECENT = "Recently Released"
         const val SECTION_LUCKY = "I'm Feeling Lucky"
+
+        /** How many scenes the initial load fetches (also the carousel pool). */
+        const val INITIAL_LIMIT = 50
+
+        /** Page size for incremental "Recently Released" loads. */
+        const val RECENT_PAGE_SIZE = 20
 
         /** Sections shown on the Home tab. */
         val homeSections = setOf(SECTION_RECENT, SECTION_LUCKY)

@@ -28,7 +28,7 @@ import com.example.dreamescape_ai.ui.screens.CreditUsageScreen
 import com.example.dreamescape_ai.ui.screens.DiscoveryScreen
 import com.example.dreamescape_ai.ui.screens.HistoryScreen
 import com.example.dreamescape_ai.ui.screens.ProfileScreen
-import com.example.dreamescape_ai.ui.theme.GreenVoid
+import com.example.dreamescape_ai.ui.theme.BlueVoid
 import com.example.dreamescape_ai.ui.theme.NightVoid
 import com.example.dreamescape_ai.ui.theme.nightSkyGradient
 import org.openapitools.client.models.Chat
@@ -50,6 +50,10 @@ fun ScripulyaApp(
     onChatClick: (Chat) -> Unit,
     onStoryClick: (StoryItem) -> Unit = {},
     onPlay: (HistoryItem) -> Unit = {},
+    onCreateCharacter: () -> Unit = {},
+    onCreateScene: () -> Unit = {},
+    onMyCharacters: () -> Unit = {},
+    onMyScenes: () -> Unit = {},
     discoveryViewModel: DiscoveryViewModel = viewModel()
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(ScripulyaTab.HOME) }
@@ -84,13 +88,20 @@ fun ScripulyaApp(
                             errorMessage = discoveryState.errorMessage,
                             onRetry = discoveryViewModel::loadDiscovery,
                             onStoryClick = onStoryClick,
-                            onOpenHistory = openHistory
+                            onOpenHistory = openHistory,
+                            recentHasMore = discoveryState.recentHasMore,
+                            recentIsLoadingMore = discoveryState.recentIsLoadingMore,
+                            onLoadMoreRecent = discoveryViewModel::loadMoreRecent
                         )
                     }
 
                     ScripulyaTab.CREDITS -> CreditUsageScreen(
                         mana = profile.manaCredits,
-                        elite = profile.eliteCredits
+                        elite = profile.eliteCredits,
+                        onCreateCharacter = onCreateCharacter,
+                        onCreateScene = onCreateScene,
+                        onMyCharacters = onMyCharacters,
+                        onMyScenes = onMyScenes
                     )
 
                     // The Feedback/Chat tab shows the user's own conversations inline.
@@ -113,7 +124,7 @@ fun ScripulyaApp(
                         items = history,
                         onPlay = onPlay,
                         onBack = { showHistory = false },
-                        modifier = Modifier.fillMaxSize().background(GreenVoid)
+                        modifier = Modifier.fillMaxSize().background(BlueVoid)
                     )
                 }
             }

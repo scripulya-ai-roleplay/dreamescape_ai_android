@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,13 +22,19 @@ import com.example.dreamescape_ai.ui.components.scripPanel
 import com.example.dreamescape_ai.ui.theme.ScripulyaText
 
 /**
- * "Credit Usage" destination. Shows the two balance cards (display-only) plus a
- * note that purchasing / billing is not yet available.
+ * "Credit Usage" destination. Shows the two balance cards (display-only), a note
+ * that purchasing / billing is not yet available, and a "Manage Characters &
+ * Scenes" hub whose four buttons lead to the create flows and the My Characters /
+ * My Scenes waterfalls.
  */
 @Composable
 fun CreditUsageScreen(
     mana: CreditBalance,
     elite: CreditBalance,
+    onCreateCharacter: () -> Unit,
+    onCreateScene: () -> Unit,
+    onMyCharacters: () -> Unit,
+    onMyScenes: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -55,5 +62,35 @@ fun CreditUsageScreen(
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.fillMaxWidth().scripPanel(radius = 20.dp).padding(16.dp)
         )
+
+        // --- Manage Characters & Scenes ---
+        Text(
+            text = "Manage Characters & Scenes",
+            color = ScripulyaText,
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(top = 28.dp, bottom = 12.dp)
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(
+                onClick = onCreateCharacter,
+                modifier = Modifier.weight(1f)
+            ) { Text("Create Character") }
+            Button(
+                onClick = onCreateScene,
+                modifier = Modifier.weight(1f)
+            ) { Text("Create Scene") }
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(
+                onClick = onMyCharacters,
+                modifier = Modifier.weight(1f)
+            ) { Text("My Characters") }
+            Button(
+                onClick = onMyScenes,
+                modifier = Modifier.weight(1f)
+            ) { Text("My Scenes") }
+        }
     }
 }

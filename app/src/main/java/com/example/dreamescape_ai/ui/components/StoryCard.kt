@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
@@ -45,7 +44,6 @@ import com.example.dreamescape_ai.ui.theme.ScripulyaText
 fun StoryCard(story: StoryItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .width(168.dp)
             .aspectRatio(0.70f)
             .clip(RoundedCornerShape(18.dp))
             .clickable(onClick = onClick)

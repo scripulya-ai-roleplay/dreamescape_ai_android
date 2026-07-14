@@ -24,7 +24,7 @@ private val ScripulyaColorScheme = darkColorScheme(
     onSecondaryContainer = ScripulyaText,
     tertiary = ScripulyaPink,
     onTertiary = ScripulyaText,
-    background = GreenVoid,
+    background = BlueVoid,
     onBackground = ScripulyaText,
     surface = NightDeep,
     onSurface = ScripulyaText,
@@ -50,9 +50,9 @@ fun Modifier.nightSkyGradient(): Modifier =
     this.background(
         Brush.verticalGradient(
             colors = listOf(
-                GreenVoid,
-                GreenDeep,
-                GreenVoid
+                BlueVoid,
+                BlueDeep,
+                BlueVoid
             )
         )
     )

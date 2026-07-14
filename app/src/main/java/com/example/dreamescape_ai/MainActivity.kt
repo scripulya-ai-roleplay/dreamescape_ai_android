@@ -38,6 +38,18 @@ class MainActivity : ComponentActivity() {
                                 putExtra(ScenePreviewActivity.EXTRA_SCENE_ID, story.id)
                             }
                         )
+                    },
+                    onCreateCharacter = {
+                        startActivity(Intent(this, CreateCharacterActivity::class.java))
+                    },
+                    onCreateScene = {
+                        startActivity(Intent(this, CreateSceneActivity::class.java))
+                    },
+                    onMyCharacters = {
+                        startActivity(Intent(this, MyCharactersActivity::class.java))
+                    },
+                    onMyScenes = {
+                        startActivity(Intent(this, MyScenesActivity::class.java))
                     }
                     // onPlay left as a no-op: the History feed is still sample data.
                 )

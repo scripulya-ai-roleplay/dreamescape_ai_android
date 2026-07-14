@@ -13,6 +13,10 @@ val NightOutline = Color(0xFF2A3360)
 val GreenVoid = Color(0xFF0E3B22)   // green app background, gradient edges
 val GreenDeep = Color(0xFF2E7D32)   // green gradient midpoint
 
+// --- Blue background (overrides the green bg) ---
+val BlueVoid = Color(0xFF0E2A5C)   // blue app background, gradient edges
+val BlueDeep = Color(0xFF2E5FB8)   // blue gradient midpoint
+
 // --- Brand gems ---
 val ManaBlue = Color(0xFF39D3FF)     // Mana Credits (blue gem)
 val ManaBlueDeep = Color(0xFF1B6FB8)
