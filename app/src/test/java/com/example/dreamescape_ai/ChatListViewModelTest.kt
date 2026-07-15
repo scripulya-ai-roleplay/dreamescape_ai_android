@@ -71,6 +71,11 @@ class ChatListViewModelTest {
         return ChatListViewModel(
             userId = testUserId,
             searchChatsCall = onSearchChats,
+            // The per-group scene/image/message lookups are exercised elsewhere;
+            // stubbed out here so these tests stay hermetic and offline.
+            getSceneCall = { throw IllegalStateException("not used in tests") },
+            sceneImageCall = { throw IllegalStateException("not used in tests") },
+            latestMessageCall = { throw IllegalStateException("not used in tests") },
             ioDispatcher = testDispatcher
         )
     }

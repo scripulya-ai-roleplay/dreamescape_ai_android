@@ -5,7 +5,7 @@ import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,14 +16,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,11 +37,16 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import com.mikepenz.markdown.m3.Markdown
+import com.mikepenz.markdown.m3.markdownColor
 import com.example.dreamescape_ai.ui.theme.Dreamescape_aiTheme
 import org.openapitools.client.models.ChatRoles
 import org.openapitools.client.models.Message
@@ -140,97 +144,119 @@ fun ChatScreen(
 
     LaunchedEffect(Unit) {
         viewModel.loadMessages()
+        viewModel.loadSceneImage()
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        if (uiState.errorMessage != null) {
-            Text(
-                text = uiState.errorMessage!!,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium
+    Box(modifier = modifier.fillMaxSize()) {
+        // Scene preview rendered as the chat background.
+        val backgroundImageUrl = uiState.sceneImageUrl
+        if (backgroundImageUrl != null) {
+            AsyncImage(
+                model = backgroundImageUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            // Dark scrim so the messages stay legible over any backdrop.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.55f))
+            )
         }
 
-        Box(modifier = Modifier.weight(1f)) {
-            if (uiState.isLoading && uiState.messages.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
-            } else if (uiState.messages.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "No messages yet. Say hello!",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                }
-            } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(uiState.messages) { message ->
-                        MessageItem(message = message)
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (uiState.errorMessage != null) {
+                Text(
+                    text = uiState.errorMessage!!,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+
+            Box(modifier = Modifier.weight(1f)) {
+                if (uiState.isLoading && uiState.messages.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                } else if (uiState.messages.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No messages yet. Say hello!",
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        itemsIndexed(uiState.messages) { index, message ->
+                            MessageItem(message = message)
+                            if (index < uiState.messages.lastIndex) {
+                                HorizontalDivider(
+                                    color = Color.White.copy(alpha = 0.15f),
+                                    thickness = 1.dp
+                                )
+                            }
+                        }
                     }
                 }
             }
-        }
 
-        if (uiState.isThinking) {
+            if (uiState.isThinking) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.width(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Model is thinking… ${uiState.thinkingSeconds}s",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White
+                    )
+                }
+            }
+
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.width(16.dp),
-                    strokeWidth = 2.dp
+                OutlinedTextField(
+                    value = uiState.input,
+                    onValueChange = viewModel::onInputChanged,
+                    label = { Text("Message") },
+                    modifier = Modifier.weight(1f),
+                    enabled = !uiState.isSending
                 )
+
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Model is thinking… ${uiState.thinkingSeconds}s",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-        }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            OutlinedTextField(
-                value = uiState.input,
-                onValueChange = viewModel::onInputChanged,
-                label = { Text("Message") },
-                modifier = Modifier.weight(1f),
-                enabled = !uiState.isSending
-            )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            IconButton(
-                onClick = viewModel::sendMessage,
-                enabled = !uiState.isSending && uiState.input.isNotBlank()
-            ) {
-                if (uiState.isSending) {
-                    CircularProgressIndicator(modifier = Modifier.width(24.dp))
-                } else {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "Send"
-                    )
+                IconButton(
+                    onClick = viewModel::sendMessage,
+                    enabled = !uiState.isSending && uiState.input.isNotBlank()
+                ) {
+                    if (uiState.isSending) {
+                        CircularProgressIndicator(modifier = Modifier.width(24.dp))
+                    } else {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Send"
+                        )
+                    }
                 }
             }
         }
@@ -240,47 +266,45 @@ fun ChatScreen(
 @Composable
 fun MessageItem(message: Message) {
     val isUser = message.role == ChatRoles.user
-    val containerColor = if (isUser) {
-        MaterialTheme.colorScheme.primaryContainer
-    } else {
-        MaterialTheme.colorScheme.secondaryContainer
-    }
+    // Model replies arrive as a fenced {"text": ...} envelope; unwrap it to plain
+    // prose. User messages render verbatim. Both then go through the Markdown renderer.
+    val displayText = if (isUser) message.message else extractModelMessageText(message.message)
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+    // Full-width message with a darkened transparent background so the scene
+    // backdrop still shows through; authorship is carried by the You/Model label.
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.Black.copy(alpha = 0.45f))
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = containerColor),
-            modifier = Modifier.fillMaxWidth(0.85f)
-        ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Text(
-                    text = if (isUser) "You" else "Model",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = message.message,
-                    style = MaterialTheme.typography.bodyMedium
-                )
+        Text(
+            text = if (isUser) "You" else "Model",
+            color = Color.White,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Markdown(
+            content = displayText,
+            colors = markdownColor(text = Color.White),
+            modifier = Modifier.fillMaxWidth()
+        )
 
-                val createdText = message.dateCreated?.let { formatMessageTime(it) }
-                if (createdText != null) {
-                    val isEdited = message.dateEdited != null &&
-                        message.dateEdited != message.dateCreated
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = if (isEdited) {
-                            "$createdText \u00b7 edited ${formatMessageTime(message.dateEdited!!)}"
-                        } else {
-                            createdText
-                        },
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                }
-            }
+        val createdText = message.dateCreated?.let { formatMessageTime(it) }
+        if (createdText != null) {
+            val isEdited = message.dateEdited != null &&
+                message.dateEdited != message.dateCreated
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = if (isEdited) {
+                    "$createdText \u00b7 edited ${formatMessageTime(message.dateEdited!!)}"
+                } else {
+                    createdText
+                },
+                color = Color.White.copy(alpha = 0.7f),
+                style = MaterialTheme.typography.labelSmall
+            )
         }
     }
 }

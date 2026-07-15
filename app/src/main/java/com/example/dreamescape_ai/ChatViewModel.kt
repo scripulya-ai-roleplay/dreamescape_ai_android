@@ -14,12 +14,17 @@ import kotlinx.coroutines.launch
 import okhttp3.Call
 import okhttp3.Request
 import org.json.JSONObject
+import org.openapitools.client.apis.ChatsApi
+import org.openapitools.client.apis.MediaApi
 import org.openapitools.client.apis.MessagesApi
 import org.openapitools.client.infrastructure.ApiClient
+import org.openapitools.client.models.ApiResponseChat
 import org.openapitools.client.models.ApiResponseMessage
+import org.openapitools.client.models.ApiResponsePageMediaAssetDTO
 import org.openapitools.client.models.ApiResponsePageMessage
 import org.openapitools.client.models.ChatRoles
 import org.openapitools.client.models.LLMModelType
+import org.openapitools.client.models.MediaEntityType
 import org.openapitools.client.models.Message
 import org.openapitools.client.models.MessageStatus
 import org.openapitools.client.models.UserMessageDTO
@@ -34,13 +39,28 @@ data class ChatUiState(
     val isSending: Boolean = false,
     val isThinking: Boolean = false,
     val thinkingSeconds: Int = 0,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val sceneImageUrl: String? = null,
+    val sceneImageResolved: Boolean = false
 )
 
 class ChatViewModel(
     private val chatId: UUID,
     private val loadMessagesCall: (chatId: UUID) -> ApiResponsePageMessage = { id ->
         MessagesApi().searchMessagesApiV1MessagesGet(chatsIds = listOf(id), limit = 100, offset = 0)
+    },
+    // Fetches the chat so its scene_id is known; used to resolve the scene's
+    // preview image for the chat background.
+    private val getChatCall: (chatId: UUID) -> ApiResponseChat = { id ->
+        ChatsApi().getChatDetailsApiV1ChatsChatIdGet(chatId = id)
+    },
+    // Resolves the first media asset attached to a scene (its preview image).
+    private val sceneImageCall: (sceneId: UUID) -> ApiResponsePageMediaAssetDTO = { sceneId ->
+        MediaApi().searchMediaApiV1MediaGet(
+            entityType = MediaEntityType.scene,
+            entityId = sceneId,
+            limit = 1
+        )
     },
     private val sendMessageCall: (UserMessageDTO) -> ApiResponseMessage = { dto ->
         MessagesApi().createMessageApiV1MessagesPost(dto)
@@ -88,6 +108,28 @@ class ChatViewModel(
      */
     private fun List<Message>.sortedChronologically(): List<Message> =
         sortedWith(compareBy(nullsLast<OffsetDateTime>()) { it.dateCreated })
+
+    /**
+     * Resolves the scene's preview image so the chat can render it as its
+     * background. Reads the chat to find its scene_id, then looks up the scene's
+     * first media asset. Failures leave the background empty rather than erroring
+     * the whole screen; resolved once per instance.
+     */
+    fun loadSceneImage() {
+        if (_uiState.value.sceneImageResolved) return
+        viewModelScope.launch(ioDispatcher) {
+            val url = try {
+                val sceneId = getChatCall(chatId).result.sceneId
+                sceneImageCall(sceneId).result.items.firstOrNull()?.url
+            } catch (_: Exception) {
+                null
+            }
+            _uiState.value = _uiState.value.copy(
+                sceneImageUrl = url,
+                sceneImageResolved = true
+            )
+        }
+    }
 
     fun sendMessage() {
         val text = _uiState.value.input.trim()

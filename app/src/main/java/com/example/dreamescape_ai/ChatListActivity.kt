@@ -19,7 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Chat
@@ -39,12 +39,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.example.dreamescape_ai.ui.components.scripPanel
-import com.example.dreamescape_ai.ui.theme.ArcanePurple
 import com.example.dreamescape_ai.ui.theme.Dreamescape_aiTheme
 import com.example.dreamescape_ai.ui.theme.ManaBlue
 import com.example.dreamescape_ai.ui.theme.ScripulyaText
@@ -161,32 +162,53 @@ fun ChatGroupItem(group: ChatGroup, onClick: () -> Unit = {}) {
     ) {
         Box(
             modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(ArcanePurple.copy(alpha = 0.2f)),
+                .size(56.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(ManaBlue.copy(alpha = 0.15f)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.Chat,
-                contentDescription = null,
-                tint = ManaBlue,
-                modifier = Modifier.size(22.dp)
-            )
+            val imageUrl = group.sceneImageUrl
+            if (imageUrl != null) {
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = group.sceneName,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Chat,
+                    contentDescription = null,
+                    tint = ManaBlue,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = group.title,
+                text = group.sceneName ?: group.latestChat.title,
                 color = ScripulyaText,
                 fontWeight = FontWeight.SemiBold,
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Text(
-                text = if (group.chatCount == 1) "1 chat" else "${group.chatCount} chats",
-                color = ScripulyaTextDim,
-                style = MaterialTheme.typography.bodySmall
-            )
+            val preview = group.latestMessagePreview
+            if (preview != null) {
+                Text(
+                    text = preview,
+                    color = ScripulyaTextDim,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            } else {
+                Text(
+                    text = if (group.chatCount == 1) "1 chat" else "${group.chatCount} chats",
+                    color = ScripulyaTextDim,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
         }
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,

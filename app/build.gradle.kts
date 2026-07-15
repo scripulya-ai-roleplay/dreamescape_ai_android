@@ -52,6 +52,7 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.kotlinReflect)
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("com.mikepenz:multiplatform-markdown-renderer-m3:0.27.0")
     testImplementation(libs.junit)
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
     androidTestImplementation(libs.androidx.junit)
