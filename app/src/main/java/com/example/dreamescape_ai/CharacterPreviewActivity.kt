@@ -5,8 +5,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,6 +47,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.example.dreamescape_ai.ui.components.BookmarkButton
+import com.example.dreamescape_ai.ui.components.LikeButton
 import com.example.dreamescape_ai.ui.theme.Dreamescape_aiTheme
 import java.util.UUID
 
@@ -131,7 +135,46 @@ fun CharacterPreviewScreen(
 
         CharacterDescriptionSection(uiState = uiState)
 
+        CharacterEngagementSection(
+            isLiked = uiState.isLiked,
+            likesCount = uiState.likesCount,
+            isBookmarked = uiState.isBookmarked,
+            errorMessage = uiState.engagementError,
+            onToggleLike = viewModel::toggleLike,
+            onToggleBookmark = viewModel::toggleBookmark
+        )
+
         Spacer(modifier = Modifier.navigationBarsPadding())
+    }
+}
+
+@Composable
+private fun CharacterEngagementSection(
+    isLiked: Boolean,
+    likesCount: Int,
+    isBookmarked: Boolean,
+    errorMessage: String?,
+    onToggleLike: () -> Unit,
+    onToggleBookmark: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 24.dp, start = 24.dp, end = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(20.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        LikeButton(isLiked = isLiked, likesCount = likesCount, onClick = onToggleLike)
+        BookmarkButton(isBookmarked = isBookmarked, onClick = onToggleBookmark)
+    }
+
+    if (errorMessage != null) {
+        Text(
+            text = errorMessage,
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+        )
     }
 }
 

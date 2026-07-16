@@ -15,8 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -26,14 +25,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.dreamescape_ai.model.StoryItem
-import com.example.dreamescape_ai.model.StoryMetric
-import com.example.dreamescape_ai.model.StoryMetricType
 import com.example.dreamescape_ai.ui.theme.ScripulyaText
 
 /**
@@ -102,25 +100,38 @@ fun StoryCard(story: StoryItem, onClick: () -> Unit, modifier: Modifier = Modifi
                     color = ScripulyaText.copy(alpha = 0.7f),
                     style = MaterialTheme.typography.labelSmall
                 )
-                story.metric?.let { MetricLine(it) }
+                SceneStatsRow(chats = story.chatsCount, messages = story.messagesCount)
             }
         }
     }
 }
 
+/**
+ * A scene's chats + messages totals, shown as two icon-and-count pairs. Rendered
+ * only when the backend surfaced at least one of the counts.
+ */
 @Composable
-private fun MetricLine(metric: StoryMetric) {
-    val icon = when (metric.type) {
-        StoryMetricType.MESSAGES -> Icons.AutoMirrored.Filled.Chat
-        StoryMetricType.LIKES -> Icons.Filled.Favorite
-        StoryMetricType.NEW -> Icons.Filled.LocalFireDepartment
+private fun SceneStatsRow(chats: Int?, messages: Int?) {
+    if (chats == null && messages == null) return
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (chats != null) Stat(icon = Icons.Filled.Forum, value = chats)
+        if (messages != null) Stat(icon = Icons.AutoMirrored.Filled.Chat, value = messages)
     }
-    val text = when (metric.type) {
-        StoryMetricType.NEW -> "New"
-        else -> "${metric.formatted()} ${metric.type.label}"
-    }
+}
+
+@Composable
+private fun Stat(icon: ImageVector, value: Int) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-        Icon(icon, contentDescription = null, tint = ScripulyaText.copy(alpha = 0.85f), modifier = Modifier.size(13.dp))
-        Text(text = text, color = ScripulyaText.copy(alpha = 0.85f), style = MaterialTheme.typography.labelSmall)
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = ScripulyaText.copy(alpha = 0.85f),
+            modifier = Modifier.size(13.dp)
+        )
+        Text(
+            text = value.toString(),
+            color = ScripulyaText.copy(alpha = 0.85f),
+            style = MaterialTheme.typography.labelSmall
+        )
     }
 }

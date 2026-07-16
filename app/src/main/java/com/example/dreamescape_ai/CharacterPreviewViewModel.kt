@@ -10,7 +10,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.openapitools.client.apis.CharactersApi
 import org.openapitools.client.apis.MediaApi
+import org.openapitools.client.models.ApiResponseBookmarkState
 import org.openapitools.client.models.ApiResponseCharacter
+import org.openapitools.client.models.ApiResponseLikeState
 import org.openapitools.client.models.ApiResponsePageMediaAssetDTO
 import org.openapitools.client.models.Character
 import org.openapitools.client.models.MediaEntityType
@@ -21,7 +23,12 @@ data class CharacterPreviewUiState(
     val portraitUrl: String? = null,
     val portraitResolved: Boolean = false,
     val isLoading: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    // Like / bookmark engagement for the current user.
+    val isLiked: Boolean = false,
+    val likesCount: Int = 0,
+    val isBookmarked: Boolean = false,
+    val engagementError: String? = null
 )
 
 class CharacterPreviewViewModel(
@@ -31,6 +38,25 @@ class CharacterPreviewViewModel(
     },
     private val portraitImageCall: (UUID) -> ApiResponsePageMediaAssetDTO = { entityId ->
         MediaApi().searchMediaApiV1MediaGet(entityType = MediaEntityType.character, entityId = entityId, limit = 1)
+    },
+    // Like / bookmark engagement with this character.
+    private val getLikeStateCall: (UUID) -> ApiResponseLikeState = { id ->
+        CharactersApi().getCharacterLikeStateApiV1CharactersCharacterIdLikeGet(characterId = id)
+    },
+    private val setLikeCall: (UUID) -> ApiResponseLikeState = { id ->
+        CharactersApi().likeCharacterApiV1CharactersCharacterIdLikePost(characterId = id)
+    },
+    private val unsetLikeCall: (UUID) -> ApiResponseLikeState = { id ->
+        CharactersApi().unlikeCharacterApiV1CharactersCharacterIdLikeDelete(characterId = id)
+    },
+    private val getBookmarkStateCall: (UUID) -> ApiResponseBookmarkState = { id ->
+        CharactersApi().getCharacterBookmarkStateApiV1CharactersCharacterIdBookmarkGet(characterId = id)
+    },
+    private val setBookmarkCall: (UUID) -> ApiResponseBookmarkState = { id ->
+        CharactersApi().bookmarkCharacterApiV1CharactersCharacterIdBookmarkPost(characterId = id)
+    },
+    private val unsetBookmarkCall: (UUID) -> ApiResponseBookmarkState = { id ->
+        CharactersApi().unbookmarkCharacterApiV1CharactersCharacterIdBookmarkDelete(characterId = id)
     },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
@@ -50,6 +76,7 @@ class CharacterPreviewViewModel(
                 val character = getCharacterCall(characterId).result
                 _uiState.value = _uiState.value.copy(character = character, isLoading = false)
                 resolvePortraitImage(character.id)
+                loadEngagementState(character.id)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -75,6 +102,67 @@ class CharacterPreviewViewModel(
                 null
             }
             _uiState.value = _uiState.value.copy(portraitUrl = url, portraitResolved = true)
+        }
+    }
+
+    /**
+     * Like / bookmark state for the current user against this character. Fetched
+     * once on load; failures leave both buttons in their default (off) state.
+     */
+    private fun loadEngagementState(characterId: UUID?) {
+        if (characterId == null) return
+        viewModelScope.launch(ioDispatcher) {
+            val like = try {
+                getLikeStateCall(characterId).result
+            } catch (_: Exception) {
+                null
+            }
+            val bookmark = try {
+                getBookmarkStateCall(characterId).result
+            } catch (_: Exception) {
+                null
+            }
+            _uiState.value = _uiState.value.copy(
+                isLiked = like?.liked == true,
+                likesCount = like?.likesCount ?: 0,
+                isBookmarked = bookmark?.bookmarked == true
+            )
+        }
+    }
+
+    /** Toggles the character's like optimistically; reverts to the prior state on failure. */
+    fun toggleLike() {
+        val previouslyLiked = _uiState.value.isLiked
+        _uiState.value = _uiState.value.copy(isLiked = !previouslyLiked, engagementError = null)
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                val state =
+                    if (previouslyLiked) unsetLikeCall(characterId).result else setLikeCall(characterId).result
+                _uiState.value = _uiState.value.copy(isLiked = state.liked, likesCount = state.likesCount)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLiked = previouslyLiked,
+                    engagementError = e.message ?: "Failed to update like"
+                )
+            }
+        }
+    }
+
+    /** Toggles the character's bookmark optimistically; reverts to the prior state on failure. */
+    fun toggleBookmark() {
+        val previouslyBookmarked = _uiState.value.isBookmarked
+        _uiState.value = _uiState.value.copy(isBookmarked = !previouslyBookmarked, engagementError = null)
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                val state =
+                    if (previouslyBookmarked) unsetBookmarkCall(characterId).result else setBookmarkCall(characterId).result
+                _uiState.value = _uiState.value.copy(isBookmarked = state.bookmarked)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isBookmarked = previouslyBookmarked,
+                    engagementError = e.message ?: "Failed to update bookmark"
+                )
+            }
         }
     }
 }

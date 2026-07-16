@@ -50,6 +50,9 @@ data class StoryItem(
     val authorHandle: String,
     val coverImageUrl: String?,
     val metric: StoryMetric? = null,
+    // Per-scene engagement surfaced from the backend (chats / messages totals).
+    val chatsCount: Int? = null,
+    val messagesCount: Int? = null,
     val tags: List<ContentTag> = emptyList()
 )
 

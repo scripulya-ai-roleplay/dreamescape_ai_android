@@ -22,30 +22,14 @@ import com.squareup.moshi.JsonClass
 /**
  * 
  *
- * @param title 
- * @param userId 
- * @param sceneId 
- * @param id 
  * @param userCharacterId 
  */
 
 
-data class Chat (
-
-    @Json(name = "title")
-    val title: kotlin.String,
-
-    @Json(name = "user_id")
-    val userId: java.util.UUID,
-
-    @Json(name = "scene_id")
-    val sceneId: java.util.UUID,
-
-    @Json(name = "id")
-    val id: java.util.UUID? = null,
+data class BodySetChatPersonaApiV1ChatsChatIdPersonaPost (
 
     @Json(name = "user_character_id")
-    val userCharacterId: java.util.UUID? = null
+    val userCharacterId: java.util.UUID
 
 ) {
 

@@ -13,6 +13,8 @@ import org.openapitools.client.apis.CharactersApi
 import org.openapitools.client.apis.ChatsApi
 import org.openapitools.client.apis.MediaApi
 import org.openapitools.client.apis.ScenesApi
+import org.openapitools.client.models.ApiResponseBookmarkState
+import org.openapitools.client.models.ApiResponseLikeState
 import org.openapitools.client.models.ApiResponsePageCharacter
 import org.openapitools.client.models.ApiResponsePageChat
 import org.openapitools.client.models.ApiResponsePageMediaAssetDTO
@@ -41,7 +43,16 @@ data class ScenePreviewUiState(
     val isCreatingChat: Boolean = false,
     val chatCreationError: String? = null,
     val createdChatId: UUID? = null,
-    val createdChatTitle: String? = null
+    val createdChatTitle: String? = null,
+    // Like / bookmark engagement for the current user.
+    val isLiked: Boolean = false,
+    val likesCount: Int = 0,
+    val isBookmarked: Boolean = false,
+    val engagementError: String? = null,
+    // Persona picker: characters the user may play as (bookmarked + created).
+    val eligibleCharacters: List<CharacterCardState> = emptyList(),
+    val areEligibleLoaded: Boolean = false,
+    val selectedCharacterId: UUID? = null
 )
 
 class ScenePreviewViewModel(
@@ -60,6 +71,32 @@ class ScenePreviewViewModel(
     },
     private val characterImageCall: (UUID) -> ApiResponsePageMediaAssetDTO = { entityId ->
         MediaApi().searchMediaApiV1MediaGet(entityType = MediaEntityType.character, entityId = entityId, limit = 1)
+    },
+    // Like / bookmark engagement with this scene.
+    private val getLikeStateCall: (UUID) -> ApiResponseLikeState = { id ->
+        ScenesApi().getSceneLikeStateApiV1ScenesSceneIdLikeGet(sceneId = id)
+    },
+    private val setLikeCall: (UUID) -> ApiResponseLikeState = { id ->
+        ScenesApi().likeSceneApiV1ScenesSceneIdLikePost(sceneId = id)
+    },
+    private val unsetLikeCall: (UUID) -> ApiResponseLikeState = { id ->
+        ScenesApi().unlikeSceneApiV1ScenesSceneIdLikeDelete(sceneId = id)
+    },
+    private val getBookmarkStateCall: (UUID) -> ApiResponseBookmarkState = { id ->
+        ScenesApi().getSceneBookmarkStateApiV1ScenesSceneIdBookmarkGet(sceneId = id)
+    },
+    private val setBookmarkCall: (UUID) -> ApiResponseBookmarkState = { id ->
+        ScenesApi().bookmarkSceneApiV1ScenesSceneIdBookmarkPost(sceneId = id)
+    },
+    private val unsetBookmarkCall: (UUID) -> ApiResponseBookmarkState = { id ->
+        ScenesApi().unbookmarkSceneApiV1ScenesSceneIdBookmarkDelete(sceneId = id)
+    },
+    // Characters the user may play as: bookmarked by them, or created by them.
+    private val searchBookmarkedCharactersCall: (List<UUID>) -> ApiResponsePageCharacter = { userIds ->
+        CharactersApi().searchCharacterApiV1CharactersGet(bookmarkedBy = userIds, limit = 50)
+    },
+    private val searchOwnedCharactersCall: (List<UUID>) -> ApiResponsePageCharacter = { userIds ->
+        CharactersApi().searchCharacterApiV1CharactersGet(ownerIds = userIds, limit = 50)
     },
     private val userId: UUID = JwtTokenProvider().userId,
     private val searchChatsCall: (userIds: List<UUID>?, offset: Int?, limit: Int?) -> ApiResponsePageChat = { userIds, offset, limit ->
@@ -88,6 +125,7 @@ class ScenePreviewViewModel(
                 _uiState.value = _uiState.value.copy(scene = scene, isLoading = false)
                 resolveHeroImage(scene.id)
                 loadCharacters(scene.ownerId)
+                loadEngagementState(scene.id)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -115,6 +153,8 @@ class ScenePreviewViewModel(
                     title = title,
                     userId = userId,
                     sceneId = sceneId,
+                    // Persona chosen in the picker (null = play as a generic user).
+                    userCharacterId = _uiState.value.selectedCharacterId,
                     id = chatIdProvider()
                 )
                 val response = createChatCall(chat)
@@ -147,6 +187,99 @@ class ScenePreviewViewModel(
         } catch (_: Exception) {
             0
         }
+
+    /**
+     * Like / bookmark state for the current user against this scene. Fetched
+     * once on load so the buttons reflect the server's truth; failures leave
+     * both buttons in their default (off) state rather than blocking the screen.
+     */
+    private fun loadEngagementState(sceneId: UUID?) {
+        if (sceneId == null) return
+        viewModelScope.launch(ioDispatcher) {
+            val like = try {
+                getLikeStateCall(sceneId).result
+            } catch (_: Exception) {
+                null
+            }
+            val bookmark = try {
+                getBookmarkStateCall(sceneId).result
+            } catch (_: Exception) {
+                null
+            }
+            _uiState.value = _uiState.value.copy(
+                isLiked = like?.liked == true,
+                likesCount = like?.likesCount ?: 0,
+                isBookmarked = bookmark?.bookmarked == true
+            )
+        }
+    }
+
+    /** Toggles the scene's like optimistically; reverts to the prior state on failure. */
+    fun toggleLike() {
+        val sceneId = _uiState.value.scene?.id ?: return
+        val previouslyLiked = _uiState.value.isLiked
+        _uiState.value = _uiState.value.copy(isLiked = !previouslyLiked, engagementError = null)
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                val state = if (previouslyLiked) unsetLikeCall(sceneId).result else setLikeCall(sceneId).result
+                _uiState.value = _uiState.value.copy(isLiked = state.liked, likesCount = state.likesCount)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLiked = previouslyLiked,
+                    engagementError = e.message ?: "Failed to update like"
+                )
+            }
+        }
+    }
+
+    /** Toggles the scene's bookmark optimistically; reverts to the prior state on failure. */
+    fun toggleBookmark() {
+        val sceneId = _uiState.value.scene?.id ?: return
+        val previouslyBookmarked = _uiState.value.isBookmarked
+        _uiState.value = _uiState.value.copy(isBookmarked = !previouslyBookmarked, engagementError = null)
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                val state =
+                    if (previouslyBookmarked) unsetBookmarkCall(sceneId).result else setBookmarkCall(sceneId).result
+                _uiState.value = _uiState.value.copy(isBookmarked = state.bookmarked)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isBookmarked = previouslyBookmarked,
+                    engagementError = e.message ?: "Failed to update bookmark"
+                )
+            }
+        }
+    }
+
+    /**
+     * Characters the user may play as in this scene: those they bookmarked plus
+     * those they created, deduped by id (bookmarks first). Loaded lazily when
+     * the picker opens; portraits resolve via the shared [updateCharacterImage].
+     */
+    fun loadEligibleCharacters() {
+        if (_uiState.value.areEligibleLoaded) return
+        viewModelScope.launch(ioDispatcher) {
+            val bookmarked = try {
+                searchBookmarkedCharactersCall(listOf(userId)).result.items
+            } catch (_: Exception) {
+                emptyList()
+            }
+            val owned = try {
+                searchOwnedCharactersCall(listOf(userId)).result.items
+            } catch (_: Exception) {
+                emptyList()
+            }
+            val merged = (bookmarked + owned).distinctBy { it.id ?: it.name }
+            val cards = merged.map { CharacterCardState(character = it) }
+            _uiState.value = _uiState.value.copy(eligibleCharacters = cards, areEligibleLoaded = true)
+            resolveCharacterImages(cards)
+        }
+    }
+
+    /** Selects the character to play as (null = start the chat with no persona). */
+    fun selectCharacter(characterId: UUID?) {
+        _uiState.value = _uiState.value.copy(selectedCharacterId = characterId)
+    }
 
     /**
      * The create-chat response is `{"result":{"id":"<uuid>"}, ...}`. The result
@@ -209,8 +342,14 @@ class ScenePreviewViewModel(
     }
 
     private fun updateCharacterImage(characterId: UUID, url: String?) {
-        _uiState.value = _uiState.value.copy(
-            characters = _uiState.value.characters.map {
+        val current = _uiState.value
+        // A resolved portrait applies wherever the character appears — both the
+        // cast carousel and the persona-picker list reference the same ids.
+        _uiState.value = current.copy(
+            characters = current.characters.map {
+                if (it.character.id == characterId) it.copy(imageUrl = url, imageResolved = true) else it
+            },
+            eligibleCharacters = current.eligibleCharacters.map {
                 if (it.character.id == characterId) it.copy(imageUrl = url, imageResolved = true) else it
             }
         )

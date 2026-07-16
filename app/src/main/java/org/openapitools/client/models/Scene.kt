@@ -28,6 +28,9 @@ import com.squareup.moshi.JsonClass
  * @param initialMessageText 
  * @param id 
  * @param description 
+ * @param isPublic 
+ * @param chatsCount 
+ * @param messagesCount 
  */
 
 
@@ -49,7 +52,16 @@ data class Scene (
     val id: java.util.UUID? = null,
 
     @Json(name = "description")
-    val description: kotlin.String? = null
+    val description: kotlin.String? = null,
+
+    @Json(name = "is_public")
+    val isPublic: kotlin.Boolean? = false,
+
+    @Json(name = "chats_count")
+    val chatsCount: kotlin.Int? = 0,
+
+    @Json(name = "messages_count")
+    val messagesCount: kotlin.Int? = 0
 
 ) {
 

@@ -143,7 +143,8 @@ class DiscoveryViewModel(
         description = description?.takeIf { it.isNotBlank() } ?: backgroundPrompt,
         authorHandle = "@${handles[ownerId] ?: "unknown"}",
         coverImageUrl = null, // resolved lazily by resolveCovers()
-        metric = null,        // backend exposes no message/like counts yet
+        chatsCount = chatsCount,
+        messagesCount = messagesCount,
         tags = emptyList()    // backend exposes no content tags yet
     )
 

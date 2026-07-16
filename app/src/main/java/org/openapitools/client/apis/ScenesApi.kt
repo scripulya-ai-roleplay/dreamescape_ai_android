@@ -19,11 +19,15 @@ import java.io.IOException
 import okhttp3.OkHttpClient
 import okhttp3.HttpUrl
 
+import org.openapitools.client.models.ApiResponseBookmarkState
+import org.openapitools.client.models.ApiResponseLikeState
 import org.openapitools.client.models.ApiResponsePageScene
 import org.openapitools.client.models.ApiResponseScene
 import org.openapitools.client.models.HTTPValidationError
 import org.openapitools.client.models.ModelApiResponse
 import org.openapitools.client.models.Scene
+import org.openapitools.client.models.SceneSortBy
+import org.openapitools.client.models.SortOrder
 
 import com.squareup.moshi.Json
 
@@ -47,6 +51,77 @@ class ScenesApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient 
         val defaultBasePath: String by lazy {
             System.getProperties().getProperty(ApiClient.baseUrlKey, "http://localhost")
         }
+    }
+
+    /**
+     * Bookmark Scene
+     * 
+     * @param sceneId 
+     * @return ApiResponseBookmarkState
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
+    fun bookmarkSceneApiV1ScenesSceneIdBookmarkPost(sceneId: java.util.UUID) : ApiResponseBookmarkState {
+        val localVarResponse = bookmarkSceneApiV1ScenesSceneIdBookmarkPostWithHttpInfo(sceneId = sceneId)
+
+        return when (localVarResponse.responseType) {
+            ResponseType.Success -> (localVarResponse as Success<*>).data as ApiResponseBookmarkState
+            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
+            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
+            ResponseType.ClientError -> {
+                val localVarError = localVarResponse as ClientError<*>
+                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
+            }
+            ResponseType.ServerError -> {
+                val localVarError = localVarResponse as ServerError<*>
+                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()} ${localVarError.body}", localVarError.statusCode, localVarResponse)
+            }
+        }
+    }
+
+    /**
+     * Bookmark Scene
+     * 
+     * @param sceneId 
+     * @return ApiResponse<ApiResponseBookmarkState?>
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class)
+    fun bookmarkSceneApiV1ScenesSceneIdBookmarkPostWithHttpInfo(sceneId: java.util.UUID) : ApiResponse<ApiResponseBookmarkState?> {
+        val localVariableConfig = bookmarkSceneApiV1ScenesSceneIdBookmarkPostRequestConfig(sceneId = sceneId)
+
+        return request<Unit, ApiResponseBookmarkState>(
+            localVariableConfig
+        )
+    }
+
+    /**
+     * To obtain the request config of the operation bookmarkSceneApiV1ScenesSceneIdBookmarkPost
+     *
+     * @param sceneId 
+     * @return RequestConfig
+     */
+    fun bookmarkSceneApiV1ScenesSceneIdBookmarkPostRequestConfig(sceneId: java.util.UUID) : RequestConfig<Unit> {
+        val localVariableBody = null
+        val localVariableQuery: MultiValueMap = mutableMapOf()
+        val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Accept"] = "application/json"
+
+        return RequestConfig(
+            method = RequestMethod.POST,
+            path = "/api/v1/scenes/{scene_id}/bookmark".replace("{"+"scene_id"+"}", encodeURIComponent(sceneId.toString())),
+            query = localVariableQuery,
+            headers = localVariableHeaders,
+            requiresAuthentication = true,
+            body = localVariableBody
+        )
     }
 
     /**
@@ -193,6 +268,77 @@ class ScenesApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient 
     }
 
     /**
+     * Get Scene Bookmark State
+     * 
+     * @param sceneId 
+     * @return ApiResponseBookmarkState
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
+    fun getSceneBookmarkStateApiV1ScenesSceneIdBookmarkGet(sceneId: java.util.UUID) : ApiResponseBookmarkState {
+        val localVarResponse = getSceneBookmarkStateApiV1ScenesSceneIdBookmarkGetWithHttpInfo(sceneId = sceneId)
+
+        return when (localVarResponse.responseType) {
+            ResponseType.Success -> (localVarResponse as Success<*>).data as ApiResponseBookmarkState
+            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
+            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
+            ResponseType.ClientError -> {
+                val localVarError = localVarResponse as ClientError<*>
+                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
+            }
+            ResponseType.ServerError -> {
+                val localVarError = localVarResponse as ServerError<*>
+                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()} ${localVarError.body}", localVarError.statusCode, localVarResponse)
+            }
+        }
+    }
+
+    /**
+     * Get Scene Bookmark State
+     * 
+     * @param sceneId 
+     * @return ApiResponse<ApiResponseBookmarkState?>
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class)
+    fun getSceneBookmarkStateApiV1ScenesSceneIdBookmarkGetWithHttpInfo(sceneId: java.util.UUID) : ApiResponse<ApiResponseBookmarkState?> {
+        val localVariableConfig = getSceneBookmarkStateApiV1ScenesSceneIdBookmarkGetRequestConfig(sceneId = sceneId)
+
+        return request<Unit, ApiResponseBookmarkState>(
+            localVariableConfig
+        )
+    }
+
+    /**
+     * To obtain the request config of the operation getSceneBookmarkStateApiV1ScenesSceneIdBookmarkGet
+     *
+     * @param sceneId 
+     * @return RequestConfig
+     */
+    fun getSceneBookmarkStateApiV1ScenesSceneIdBookmarkGetRequestConfig(sceneId: java.util.UUID) : RequestConfig<Unit> {
+        val localVariableBody = null
+        val localVariableQuery: MultiValueMap = mutableMapOf()
+        val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Accept"] = "application/json"
+
+        return RequestConfig(
+            method = RequestMethod.GET,
+            path = "/api/v1/scenes/{scene_id}/bookmark".replace("{"+"scene_id"+"}", encodeURIComponent(sceneId.toString())),
+            query = localVariableQuery,
+            headers = localVariableHeaders,
+            requiresAuthentication = true,
+            body = localVariableBody
+        )
+    }
+
+    /**
      * Get Scene Details
      * 
      * @param sceneId 
@@ -264,12 +410,157 @@ class ScenesApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient 
     }
 
     /**
+     * Get Scene Like State
+     * 
+     * @param sceneId 
+     * @return ApiResponseLikeState
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
+    fun getSceneLikeStateApiV1ScenesSceneIdLikeGet(sceneId: java.util.UUID) : ApiResponseLikeState {
+        val localVarResponse = getSceneLikeStateApiV1ScenesSceneIdLikeGetWithHttpInfo(sceneId = sceneId)
+
+        return when (localVarResponse.responseType) {
+            ResponseType.Success -> (localVarResponse as Success<*>).data as ApiResponseLikeState
+            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
+            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
+            ResponseType.ClientError -> {
+                val localVarError = localVarResponse as ClientError<*>
+                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
+            }
+            ResponseType.ServerError -> {
+                val localVarError = localVarResponse as ServerError<*>
+                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()} ${localVarError.body}", localVarError.statusCode, localVarResponse)
+            }
+        }
+    }
+
+    /**
+     * Get Scene Like State
+     * 
+     * @param sceneId 
+     * @return ApiResponse<ApiResponseLikeState?>
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class)
+    fun getSceneLikeStateApiV1ScenesSceneIdLikeGetWithHttpInfo(sceneId: java.util.UUID) : ApiResponse<ApiResponseLikeState?> {
+        val localVariableConfig = getSceneLikeStateApiV1ScenesSceneIdLikeGetRequestConfig(sceneId = sceneId)
+
+        return request<Unit, ApiResponseLikeState>(
+            localVariableConfig
+        )
+    }
+
+    /**
+     * To obtain the request config of the operation getSceneLikeStateApiV1ScenesSceneIdLikeGet
+     *
+     * @param sceneId 
+     * @return RequestConfig
+     */
+    fun getSceneLikeStateApiV1ScenesSceneIdLikeGetRequestConfig(sceneId: java.util.UUID) : RequestConfig<Unit> {
+        val localVariableBody = null
+        val localVariableQuery: MultiValueMap = mutableMapOf()
+        val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Accept"] = "application/json"
+
+        return RequestConfig(
+            method = RequestMethod.GET,
+            path = "/api/v1/scenes/{scene_id}/like".replace("{"+"scene_id"+"}", encodeURIComponent(sceneId.toString())),
+            query = localVariableQuery,
+            headers = localVariableHeaders,
+            requiresAuthentication = true,
+            body = localVariableBody
+        )
+    }
+
+    /**
+     * Like Scene
+     * 
+     * @param sceneId 
+     * @return ApiResponseLikeState
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
+    fun likeSceneApiV1ScenesSceneIdLikePost(sceneId: java.util.UUID) : ApiResponseLikeState {
+        val localVarResponse = likeSceneApiV1ScenesSceneIdLikePostWithHttpInfo(sceneId = sceneId)
+
+        return when (localVarResponse.responseType) {
+            ResponseType.Success -> (localVarResponse as Success<*>).data as ApiResponseLikeState
+            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
+            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
+            ResponseType.ClientError -> {
+                val localVarError = localVarResponse as ClientError<*>
+                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
+            }
+            ResponseType.ServerError -> {
+                val localVarError = localVarResponse as ServerError<*>
+                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()} ${localVarError.body}", localVarError.statusCode, localVarResponse)
+            }
+        }
+    }
+
+    /**
+     * Like Scene
+     * 
+     * @param sceneId 
+     * @return ApiResponse<ApiResponseLikeState?>
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class)
+    fun likeSceneApiV1ScenesSceneIdLikePostWithHttpInfo(sceneId: java.util.UUID) : ApiResponse<ApiResponseLikeState?> {
+        val localVariableConfig = likeSceneApiV1ScenesSceneIdLikePostRequestConfig(sceneId = sceneId)
+
+        return request<Unit, ApiResponseLikeState>(
+            localVariableConfig
+        )
+    }
+
+    /**
+     * To obtain the request config of the operation likeSceneApiV1ScenesSceneIdLikePost
+     *
+     * @param sceneId 
+     * @return RequestConfig
+     */
+    fun likeSceneApiV1ScenesSceneIdLikePostRequestConfig(sceneId: java.util.UUID) : RequestConfig<Unit> {
+        val localVariableBody = null
+        val localVariableQuery: MultiValueMap = mutableMapOf()
+        val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Accept"] = "application/json"
+
+        return RequestConfig(
+            method = RequestMethod.POST,
+            path = "/api/v1/scenes/{scene_id}/like".replace("{"+"scene_id"+"}", encodeURIComponent(sceneId.toString())),
+            query = localVariableQuery,
+            headers = localVariableHeaders,
+            requiresAuthentication = true,
+            body = localVariableBody
+        )
+    }
+
+    /**
      * Search Scene
      * 
      * @param ids  (optional)
      * @param title  (optional)
+     * @param titleSearch  (optional)
      * @param owner  (optional)
      * @param characters  (optional)
+     * @param sortBy  (optional)
+     * @param sortOrder  (optional)
      * @param offset  (optional, default to 0)
      * @param limit  (optional, default to 50)
      * @return ApiResponsePageScene
@@ -281,8 +572,8 @@ class ScenesApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient 
      */
     @Suppress("UNCHECKED_CAST")
     @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
-    fun searchSceneApiV1ScenesGet(ids: kotlin.collections.List<java.util.UUID>? = null, title: kotlin.collections.List<kotlin.String>? = null, owner: kotlin.collections.List<java.util.UUID>? = null, characters: kotlin.collections.List<java.util.UUID>? = null, offset: kotlin.Int? = 0, limit: kotlin.Int? = 50) : ApiResponsePageScene {
-        val localVarResponse = searchSceneApiV1ScenesGetWithHttpInfo(ids = ids, title = title, owner = owner, characters = characters, offset = offset, limit = limit)
+    fun searchSceneApiV1ScenesGet(ids: kotlin.collections.List<java.util.UUID>? = null, title: kotlin.collections.List<kotlin.String>? = null, titleSearch: kotlin.String? = null, owner: kotlin.collections.List<java.util.UUID>? = null, characters: kotlin.collections.List<java.util.UUID>? = null, sortBy: SceneSortBy? = null, sortOrder: SortOrder? = null, offset: kotlin.Int? = 0, limit: kotlin.Int? = 50) : ApiResponsePageScene {
+        val localVarResponse = searchSceneApiV1ScenesGetWithHttpInfo(ids = ids, title = title, titleSearch = titleSearch, owner = owner, characters = characters, sortBy = sortBy, sortOrder = sortOrder, offset = offset, limit = limit)
 
         return when (localVarResponse.responseType) {
             ResponseType.Success -> (localVarResponse as Success<*>).data as ApiResponsePageScene
@@ -304,8 +595,11 @@ class ScenesApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient 
      * 
      * @param ids  (optional)
      * @param title  (optional)
+     * @param titleSearch  (optional)
      * @param owner  (optional)
      * @param characters  (optional)
+     * @param sortBy  (optional)
+     * @param sortOrder  (optional)
      * @param offset  (optional, default to 0)
      * @param limit  (optional, default to 50)
      * @return ApiResponse<ApiResponsePageScene?>
@@ -314,8 +608,8 @@ class ScenesApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient 
      */
     @Suppress("UNCHECKED_CAST")
     @Throws(IllegalStateException::class, IOException::class)
-    fun searchSceneApiV1ScenesGetWithHttpInfo(ids: kotlin.collections.List<java.util.UUID>?, title: kotlin.collections.List<kotlin.String>?, owner: kotlin.collections.List<java.util.UUID>?, characters: kotlin.collections.List<java.util.UUID>?, offset: kotlin.Int?, limit: kotlin.Int?) : ApiResponse<ApiResponsePageScene?> {
-        val localVariableConfig = searchSceneApiV1ScenesGetRequestConfig(ids = ids, title = title, owner = owner, characters = characters, offset = offset, limit = limit)
+    fun searchSceneApiV1ScenesGetWithHttpInfo(ids: kotlin.collections.List<java.util.UUID>?, title: kotlin.collections.List<kotlin.String>?, titleSearch: kotlin.String?, owner: kotlin.collections.List<java.util.UUID>?, characters: kotlin.collections.List<java.util.UUID>?, sortBy: SceneSortBy?, sortOrder: SortOrder?, offset: kotlin.Int?, limit: kotlin.Int?) : ApiResponse<ApiResponsePageScene?> {
+        val localVariableConfig = searchSceneApiV1ScenesGetRequestConfig(ids = ids, title = title, titleSearch = titleSearch, owner = owner, characters = characters, sortBy = sortBy, sortOrder = sortOrder, offset = offset, limit = limit)
 
         return request<Unit, ApiResponsePageScene>(
             localVariableConfig
@@ -327,13 +621,16 @@ class ScenesApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient 
      *
      * @param ids  (optional)
      * @param title  (optional)
+     * @param titleSearch  (optional)
      * @param owner  (optional)
      * @param characters  (optional)
+     * @param sortBy  (optional)
+     * @param sortOrder  (optional)
      * @param offset  (optional, default to 0)
      * @param limit  (optional, default to 50)
      * @return RequestConfig
      */
-    fun searchSceneApiV1ScenesGetRequestConfig(ids: kotlin.collections.List<java.util.UUID>?, title: kotlin.collections.List<kotlin.String>?, owner: kotlin.collections.List<java.util.UUID>?, characters: kotlin.collections.List<java.util.UUID>?, offset: kotlin.Int?, limit: kotlin.Int?) : RequestConfig<Unit> {
+    fun searchSceneApiV1ScenesGetRequestConfig(ids: kotlin.collections.List<java.util.UUID>?, title: kotlin.collections.List<kotlin.String>?, titleSearch: kotlin.String?, owner: kotlin.collections.List<java.util.UUID>?, characters: kotlin.collections.List<java.util.UUID>?, sortBy: SceneSortBy?, sortOrder: SortOrder?, offset: kotlin.Int?, limit: kotlin.Int?) : RequestConfig<Unit> {
         val localVariableBody = null
         val localVariableQuery: MultiValueMap = mutableMapOf<kotlin.String, kotlin.collections.List<kotlin.String>>()
             .apply {
@@ -343,11 +640,20 @@ class ScenesApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient 
                 if (title != null) {
                     put("title", toMultiValue(title.toList(), "multi"))
                 }
+                if (titleSearch != null) {
+                    put("title_search", listOf(titleSearch.toString()))
+                }
                 if (owner != null) {
                     put("owner", toMultiValue(owner.toList(), "multi"))
                 }
                 if (characters != null) {
                     put("characters", toMultiValue(characters.toList(), "multi"))
+                }
+                if (sortBy != null) {
+                    put("sort_by", listOf(sortBy.toString()))
+                }
+                if (sortOrder != null) {
+                    put("sort_order", listOf(sortOrder.toString()))
                 }
                 if (offset != null) {
                     put("offset", listOf(offset.toString()))
@@ -362,6 +668,148 @@ class ScenesApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient 
         return RequestConfig(
             method = RequestMethod.GET,
             path = "/api/v1/scenes/",
+            query = localVariableQuery,
+            headers = localVariableHeaders,
+            requiresAuthentication = true,
+            body = localVariableBody
+        )
+    }
+
+    /**
+     * Unbookmark Scene
+     * 
+     * @param sceneId 
+     * @return ApiResponseBookmarkState
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
+    fun unbookmarkSceneApiV1ScenesSceneIdBookmarkDelete(sceneId: java.util.UUID) : ApiResponseBookmarkState {
+        val localVarResponse = unbookmarkSceneApiV1ScenesSceneIdBookmarkDeleteWithHttpInfo(sceneId = sceneId)
+
+        return when (localVarResponse.responseType) {
+            ResponseType.Success -> (localVarResponse as Success<*>).data as ApiResponseBookmarkState
+            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
+            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
+            ResponseType.ClientError -> {
+                val localVarError = localVarResponse as ClientError<*>
+                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
+            }
+            ResponseType.ServerError -> {
+                val localVarError = localVarResponse as ServerError<*>
+                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()} ${localVarError.body}", localVarError.statusCode, localVarResponse)
+            }
+        }
+    }
+
+    /**
+     * Unbookmark Scene
+     * 
+     * @param sceneId 
+     * @return ApiResponse<ApiResponseBookmarkState?>
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class)
+    fun unbookmarkSceneApiV1ScenesSceneIdBookmarkDeleteWithHttpInfo(sceneId: java.util.UUID) : ApiResponse<ApiResponseBookmarkState?> {
+        val localVariableConfig = unbookmarkSceneApiV1ScenesSceneIdBookmarkDeleteRequestConfig(sceneId = sceneId)
+
+        return request<Unit, ApiResponseBookmarkState>(
+            localVariableConfig
+        )
+    }
+
+    /**
+     * To obtain the request config of the operation unbookmarkSceneApiV1ScenesSceneIdBookmarkDelete
+     *
+     * @param sceneId 
+     * @return RequestConfig
+     */
+    fun unbookmarkSceneApiV1ScenesSceneIdBookmarkDeleteRequestConfig(sceneId: java.util.UUID) : RequestConfig<Unit> {
+        val localVariableBody = null
+        val localVariableQuery: MultiValueMap = mutableMapOf()
+        val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Accept"] = "application/json"
+
+        return RequestConfig(
+            method = RequestMethod.DELETE,
+            path = "/api/v1/scenes/{scene_id}/bookmark".replace("{"+"scene_id"+"}", encodeURIComponent(sceneId.toString())),
+            query = localVariableQuery,
+            headers = localVariableHeaders,
+            requiresAuthentication = true,
+            body = localVariableBody
+        )
+    }
+
+    /**
+     * Unlike Scene
+     * 
+     * @param sceneId 
+     * @return ApiResponseLikeState
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
+    fun unlikeSceneApiV1ScenesSceneIdLikeDelete(sceneId: java.util.UUID) : ApiResponseLikeState {
+        val localVarResponse = unlikeSceneApiV1ScenesSceneIdLikeDeleteWithHttpInfo(sceneId = sceneId)
+
+        return when (localVarResponse.responseType) {
+            ResponseType.Success -> (localVarResponse as Success<*>).data as ApiResponseLikeState
+            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
+            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
+            ResponseType.ClientError -> {
+                val localVarError = localVarResponse as ClientError<*>
+                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
+            }
+            ResponseType.ServerError -> {
+                val localVarError = localVarResponse as ServerError<*>
+                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()} ${localVarError.body}", localVarError.statusCode, localVarResponse)
+            }
+        }
+    }
+
+    /**
+     * Unlike Scene
+     * 
+     * @param sceneId 
+     * @return ApiResponse<ApiResponseLikeState?>
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class)
+    fun unlikeSceneApiV1ScenesSceneIdLikeDeleteWithHttpInfo(sceneId: java.util.UUID) : ApiResponse<ApiResponseLikeState?> {
+        val localVariableConfig = unlikeSceneApiV1ScenesSceneIdLikeDeleteRequestConfig(sceneId = sceneId)
+
+        return request<Unit, ApiResponseLikeState>(
+            localVariableConfig
+        )
+    }
+
+    /**
+     * To obtain the request config of the operation unlikeSceneApiV1ScenesSceneIdLikeDelete
+     *
+     * @param sceneId 
+     * @return RequestConfig
+     */
+    fun unlikeSceneApiV1ScenesSceneIdLikeDeleteRequestConfig(sceneId: java.util.UUID) : RequestConfig<Unit> {
+        val localVariableBody = null
+        val localVariableQuery: MultiValueMap = mutableMapOf()
+        val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Accept"] = "application/json"
+
+        return RequestConfig(
+            method = RequestMethod.DELETE,
+            path = "/api/v1/scenes/{scene_id}/like".replace("{"+"scene_id"+"}", encodeURIComponent(sceneId.toString())),
             query = localVariableQuery,
             headers = localVariableHeaders,
             requiresAuthentication = true,

@@ -21,6 +21,7 @@ import okhttp3.HttpUrl
 
 import org.openapitools.client.models.ApiResponseChat
 import org.openapitools.client.models.ApiResponsePageChat
+import org.openapitools.client.models.BodySetChatPersonaApiV1ChatsChatIdPersonaPost
 import org.openapitools.client.models.BodyUpdateChatApiV1ChatsUpdateChatIdPost
 import org.openapitools.client.models.Chat
 import org.openapitools.client.models.HTTPValidationError
@@ -363,6 +364,81 @@ class ChatsApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient =
         return RequestConfig(
             method = RequestMethod.GET,
             path = "/api/v1/chats/",
+            query = localVariableQuery,
+            headers = localVariableHeaders,
+            requiresAuthentication = true,
+            body = localVariableBody
+        )
+    }
+
+    /**
+     * Set Chat Persona
+     * 
+     * @param chatId 
+     * @param bodySetChatPersonaApiV1ChatsChatIdPersonaPost 
+     * @return ModelApiResponse
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
+    fun setChatPersonaApiV1ChatsChatIdPersonaPost(chatId: java.util.UUID, bodySetChatPersonaApiV1ChatsChatIdPersonaPost: BodySetChatPersonaApiV1ChatsChatIdPersonaPost) : ModelApiResponse {
+        val localVarResponse = setChatPersonaApiV1ChatsChatIdPersonaPostWithHttpInfo(chatId = chatId, bodySetChatPersonaApiV1ChatsChatIdPersonaPost = bodySetChatPersonaApiV1ChatsChatIdPersonaPost)
+
+        return when (localVarResponse.responseType) {
+            ResponseType.Success -> (localVarResponse as Success<*>).data as ModelApiResponse
+            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
+            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
+            ResponseType.ClientError -> {
+                val localVarError = localVarResponse as ClientError<*>
+                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
+            }
+            ResponseType.ServerError -> {
+                val localVarError = localVarResponse as ServerError<*>
+                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()} ${localVarError.body}", localVarError.statusCode, localVarResponse)
+            }
+        }
+    }
+
+    /**
+     * Set Chat Persona
+     * 
+     * @param chatId 
+     * @param bodySetChatPersonaApiV1ChatsChatIdPersonaPost 
+     * @return ApiResponse<ModelApiResponse?>
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class)
+    fun setChatPersonaApiV1ChatsChatIdPersonaPostWithHttpInfo(chatId: java.util.UUID, bodySetChatPersonaApiV1ChatsChatIdPersonaPost: BodySetChatPersonaApiV1ChatsChatIdPersonaPost) : ApiResponse<ModelApiResponse?> {
+        val localVariableConfig = setChatPersonaApiV1ChatsChatIdPersonaPostRequestConfig(chatId = chatId, bodySetChatPersonaApiV1ChatsChatIdPersonaPost = bodySetChatPersonaApiV1ChatsChatIdPersonaPost)
+
+        return request<BodySetChatPersonaApiV1ChatsChatIdPersonaPost, ModelApiResponse>(
+            localVariableConfig
+        )
+    }
+
+    /**
+     * To obtain the request config of the operation setChatPersonaApiV1ChatsChatIdPersonaPost
+     *
+     * @param chatId 
+     * @param bodySetChatPersonaApiV1ChatsChatIdPersonaPost 
+     * @return RequestConfig
+     */
+    fun setChatPersonaApiV1ChatsChatIdPersonaPostRequestConfig(chatId: java.util.UUID, bodySetChatPersonaApiV1ChatsChatIdPersonaPost: BodySetChatPersonaApiV1ChatsChatIdPersonaPost) : RequestConfig<BodySetChatPersonaApiV1ChatsChatIdPersonaPost> {
+        val localVariableBody = bodySetChatPersonaApiV1ChatsChatIdPersonaPost
+        val localVariableQuery: MultiValueMap = mutableMapOf()
+        val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Content-Type"] = "application/json"
+        localVariableHeaders["Accept"] = "application/json"
+
+        return RequestConfig(
+            method = RequestMethod.POST,
+            path = "/api/v1/chats/{chat_id}/persona".replace("{"+"chat_id"+"}", encodeURIComponent(chatId.toString())),
             query = localVariableQuery,
             headers = localVariableHeaders,
             requiresAuthentication = true,

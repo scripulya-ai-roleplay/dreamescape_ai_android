@@ -19,7 +19,9 @@ import java.io.IOException
 import okhttp3.OkHttpClient
 import okhttp3.HttpUrl
 
+import org.openapitools.client.models.ApiResponseBookmarkState
 import org.openapitools.client.models.ApiResponseCharacter
+import org.openapitools.client.models.ApiResponseLikeState
 import org.openapitools.client.models.ApiResponsePageCharacter
 import org.openapitools.client.models.Character
 import org.openapitools.client.models.HTTPValidationError
@@ -47,6 +49,77 @@ class CharactersApi(basePath: kotlin.String = defaultBasePath, client: OkHttpCli
         val defaultBasePath: String by lazy {
             System.getProperties().getProperty(ApiClient.baseUrlKey, "http://localhost")
         }
+    }
+
+    /**
+     * Bookmark Character
+     * 
+     * @param characterId 
+     * @return ApiResponseBookmarkState
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
+    fun bookmarkCharacterApiV1CharactersCharacterIdBookmarkPost(characterId: java.util.UUID) : ApiResponseBookmarkState {
+        val localVarResponse = bookmarkCharacterApiV1CharactersCharacterIdBookmarkPostWithHttpInfo(characterId = characterId)
+
+        return when (localVarResponse.responseType) {
+            ResponseType.Success -> (localVarResponse as Success<*>).data as ApiResponseBookmarkState
+            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
+            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
+            ResponseType.ClientError -> {
+                val localVarError = localVarResponse as ClientError<*>
+                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
+            }
+            ResponseType.ServerError -> {
+                val localVarError = localVarResponse as ServerError<*>
+                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()} ${localVarError.body}", localVarError.statusCode, localVarResponse)
+            }
+        }
+    }
+
+    /**
+     * Bookmark Character
+     * 
+     * @param characterId 
+     * @return ApiResponse<ApiResponseBookmarkState?>
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class)
+    fun bookmarkCharacterApiV1CharactersCharacterIdBookmarkPostWithHttpInfo(characterId: java.util.UUID) : ApiResponse<ApiResponseBookmarkState?> {
+        val localVariableConfig = bookmarkCharacterApiV1CharactersCharacterIdBookmarkPostRequestConfig(characterId = characterId)
+
+        return request<Unit, ApiResponseBookmarkState>(
+            localVariableConfig
+        )
+    }
+
+    /**
+     * To obtain the request config of the operation bookmarkCharacterApiV1CharactersCharacterIdBookmarkPost
+     *
+     * @param characterId 
+     * @return RequestConfig
+     */
+    fun bookmarkCharacterApiV1CharactersCharacterIdBookmarkPostRequestConfig(characterId: java.util.UUID) : RequestConfig<Unit> {
+        val localVariableBody = null
+        val localVariableQuery: MultiValueMap = mutableMapOf()
+        val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Accept"] = "application/json"
+
+        return RequestConfig(
+            method = RequestMethod.POST,
+            path = "/api/v1/characters/{character_id}/bookmark".replace("{"+"character_id"+"}", encodeURIComponent(characterId.toString())),
+            query = localVariableQuery,
+            headers = localVariableHeaders,
+            requiresAuthentication = true,
+            body = localVariableBody
+        )
     }
 
     /**
@@ -193,6 +266,77 @@ class CharactersApi(basePath: kotlin.String = defaultBasePath, client: OkHttpCli
     }
 
     /**
+     * Get Character Bookmark State
+     * 
+     * @param characterId 
+     * @return ApiResponseBookmarkState
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
+    fun getCharacterBookmarkStateApiV1CharactersCharacterIdBookmarkGet(characterId: java.util.UUID) : ApiResponseBookmarkState {
+        val localVarResponse = getCharacterBookmarkStateApiV1CharactersCharacterIdBookmarkGetWithHttpInfo(characterId = characterId)
+
+        return when (localVarResponse.responseType) {
+            ResponseType.Success -> (localVarResponse as Success<*>).data as ApiResponseBookmarkState
+            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
+            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
+            ResponseType.ClientError -> {
+                val localVarError = localVarResponse as ClientError<*>
+                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
+            }
+            ResponseType.ServerError -> {
+                val localVarError = localVarResponse as ServerError<*>
+                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()} ${localVarError.body}", localVarError.statusCode, localVarResponse)
+            }
+        }
+    }
+
+    /**
+     * Get Character Bookmark State
+     * 
+     * @param characterId 
+     * @return ApiResponse<ApiResponseBookmarkState?>
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class)
+    fun getCharacterBookmarkStateApiV1CharactersCharacterIdBookmarkGetWithHttpInfo(characterId: java.util.UUID) : ApiResponse<ApiResponseBookmarkState?> {
+        val localVariableConfig = getCharacterBookmarkStateApiV1CharactersCharacterIdBookmarkGetRequestConfig(characterId = characterId)
+
+        return request<Unit, ApiResponseBookmarkState>(
+            localVariableConfig
+        )
+    }
+
+    /**
+     * To obtain the request config of the operation getCharacterBookmarkStateApiV1CharactersCharacterIdBookmarkGet
+     *
+     * @param characterId 
+     * @return RequestConfig
+     */
+    fun getCharacterBookmarkStateApiV1CharactersCharacterIdBookmarkGetRequestConfig(characterId: java.util.UUID) : RequestConfig<Unit> {
+        val localVariableBody = null
+        val localVariableQuery: MultiValueMap = mutableMapOf()
+        val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Accept"] = "application/json"
+
+        return RequestConfig(
+            method = RequestMethod.GET,
+            path = "/api/v1/characters/{character_id}/bookmark".replace("{"+"character_id"+"}", encodeURIComponent(characterId.toString())),
+            query = localVariableQuery,
+            headers = localVariableHeaders,
+            requiresAuthentication = true,
+            body = localVariableBody
+        )
+    }
+
+    /**
      * Get Character Details
      * 
      * @param characterId 
@@ -264,11 +408,154 @@ class CharactersApi(basePath: kotlin.String = defaultBasePath, client: OkHttpCli
     }
 
     /**
+     * Get Character Like State
+     * 
+     * @param characterId 
+     * @return ApiResponseLikeState
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
+    fun getCharacterLikeStateApiV1CharactersCharacterIdLikeGet(characterId: java.util.UUID) : ApiResponseLikeState {
+        val localVarResponse = getCharacterLikeStateApiV1CharactersCharacterIdLikeGetWithHttpInfo(characterId = characterId)
+
+        return when (localVarResponse.responseType) {
+            ResponseType.Success -> (localVarResponse as Success<*>).data as ApiResponseLikeState
+            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
+            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
+            ResponseType.ClientError -> {
+                val localVarError = localVarResponse as ClientError<*>
+                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
+            }
+            ResponseType.ServerError -> {
+                val localVarError = localVarResponse as ServerError<*>
+                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()} ${localVarError.body}", localVarError.statusCode, localVarResponse)
+            }
+        }
+    }
+
+    /**
+     * Get Character Like State
+     * 
+     * @param characterId 
+     * @return ApiResponse<ApiResponseLikeState?>
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class)
+    fun getCharacterLikeStateApiV1CharactersCharacterIdLikeGetWithHttpInfo(characterId: java.util.UUID) : ApiResponse<ApiResponseLikeState?> {
+        val localVariableConfig = getCharacterLikeStateApiV1CharactersCharacterIdLikeGetRequestConfig(characterId = characterId)
+
+        return request<Unit, ApiResponseLikeState>(
+            localVariableConfig
+        )
+    }
+
+    /**
+     * To obtain the request config of the operation getCharacterLikeStateApiV1CharactersCharacterIdLikeGet
+     *
+     * @param characterId 
+     * @return RequestConfig
+     */
+    fun getCharacterLikeStateApiV1CharactersCharacterIdLikeGetRequestConfig(characterId: java.util.UUID) : RequestConfig<Unit> {
+        val localVariableBody = null
+        val localVariableQuery: MultiValueMap = mutableMapOf()
+        val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Accept"] = "application/json"
+
+        return RequestConfig(
+            method = RequestMethod.GET,
+            path = "/api/v1/characters/{character_id}/like".replace("{"+"character_id"+"}", encodeURIComponent(characterId.toString())),
+            query = localVariableQuery,
+            headers = localVariableHeaders,
+            requiresAuthentication = true,
+            body = localVariableBody
+        )
+    }
+
+    /**
+     * Like Character
+     * 
+     * @param characterId 
+     * @return ApiResponseLikeState
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
+    fun likeCharacterApiV1CharactersCharacterIdLikePost(characterId: java.util.UUID) : ApiResponseLikeState {
+        val localVarResponse = likeCharacterApiV1CharactersCharacterIdLikePostWithHttpInfo(characterId = characterId)
+
+        return when (localVarResponse.responseType) {
+            ResponseType.Success -> (localVarResponse as Success<*>).data as ApiResponseLikeState
+            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
+            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
+            ResponseType.ClientError -> {
+                val localVarError = localVarResponse as ClientError<*>
+                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
+            }
+            ResponseType.ServerError -> {
+                val localVarError = localVarResponse as ServerError<*>
+                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()} ${localVarError.body}", localVarError.statusCode, localVarResponse)
+            }
+        }
+    }
+
+    /**
+     * Like Character
+     * 
+     * @param characterId 
+     * @return ApiResponse<ApiResponseLikeState?>
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class)
+    fun likeCharacterApiV1CharactersCharacterIdLikePostWithHttpInfo(characterId: java.util.UUID) : ApiResponse<ApiResponseLikeState?> {
+        val localVariableConfig = likeCharacterApiV1CharactersCharacterIdLikePostRequestConfig(characterId = characterId)
+
+        return request<Unit, ApiResponseLikeState>(
+            localVariableConfig
+        )
+    }
+
+    /**
+     * To obtain the request config of the operation likeCharacterApiV1CharactersCharacterIdLikePost
+     *
+     * @param characterId 
+     * @return RequestConfig
+     */
+    fun likeCharacterApiV1CharactersCharacterIdLikePostRequestConfig(characterId: java.util.UUID) : RequestConfig<Unit> {
+        val localVariableBody = null
+        val localVariableQuery: MultiValueMap = mutableMapOf()
+        val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Accept"] = "application/json"
+
+        return RequestConfig(
+            method = RequestMethod.POST,
+            path = "/api/v1/characters/{character_id}/like".replace("{"+"character_id"+"}", encodeURIComponent(characterId.toString())),
+            query = localVariableQuery,
+            headers = localVariableHeaders,
+            requiresAuthentication = true,
+            body = localVariableBody
+        )
+    }
+
+    /**
      * Search Character
      * 
      * @param ids  (optional)
      * @param ownerIds  (optional)
      * @param names  (optional)
+     * @param bookmarkedBy  (optional)
      * @param limit  (optional, default to 50)
      * @param offset  (optional, default to 0)
      * @return ApiResponsePageCharacter
@@ -280,8 +567,8 @@ class CharactersApi(basePath: kotlin.String = defaultBasePath, client: OkHttpCli
      */
     @Suppress("UNCHECKED_CAST")
     @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
-    fun searchCharacterApiV1CharactersGet(ids: kotlin.collections.List<java.util.UUID>? = null, ownerIds: kotlin.collections.List<java.util.UUID>? = null, names: kotlin.collections.List<kotlin.String>? = null, limit: kotlin.Int? = 50, offset: kotlin.Int? = 0) : ApiResponsePageCharacter {
-        val localVarResponse = searchCharacterApiV1CharactersGetWithHttpInfo(ids = ids, ownerIds = ownerIds, names = names, limit = limit, offset = offset)
+    fun searchCharacterApiV1CharactersGet(ids: kotlin.collections.List<java.util.UUID>? = null, ownerIds: kotlin.collections.List<java.util.UUID>? = null, names: kotlin.collections.List<kotlin.String>? = null, bookmarkedBy: kotlin.collections.List<java.util.UUID>? = null, limit: kotlin.Int? = 50, offset: kotlin.Int? = 0) : ApiResponsePageCharacter {
+        val localVarResponse = searchCharacterApiV1CharactersGetWithHttpInfo(ids = ids, ownerIds = ownerIds, names = names, bookmarkedBy = bookmarkedBy, limit = limit, offset = offset)
 
         return when (localVarResponse.responseType) {
             ResponseType.Success -> (localVarResponse as Success<*>).data as ApiResponsePageCharacter
@@ -304,6 +591,7 @@ class CharactersApi(basePath: kotlin.String = defaultBasePath, client: OkHttpCli
      * @param ids  (optional)
      * @param ownerIds  (optional)
      * @param names  (optional)
+     * @param bookmarkedBy  (optional)
      * @param limit  (optional, default to 50)
      * @param offset  (optional, default to 0)
      * @return ApiResponse<ApiResponsePageCharacter?>
@@ -312,8 +600,8 @@ class CharactersApi(basePath: kotlin.String = defaultBasePath, client: OkHttpCli
      */
     @Suppress("UNCHECKED_CAST")
     @Throws(IllegalStateException::class, IOException::class)
-    fun searchCharacterApiV1CharactersGetWithHttpInfo(ids: kotlin.collections.List<java.util.UUID>?, ownerIds: kotlin.collections.List<java.util.UUID>?, names: kotlin.collections.List<kotlin.String>?, limit: kotlin.Int?, offset: kotlin.Int?) : ApiResponse<ApiResponsePageCharacter?> {
-        val localVariableConfig = searchCharacterApiV1CharactersGetRequestConfig(ids = ids, ownerIds = ownerIds, names = names, limit = limit, offset = offset)
+    fun searchCharacterApiV1CharactersGetWithHttpInfo(ids: kotlin.collections.List<java.util.UUID>?, ownerIds: kotlin.collections.List<java.util.UUID>?, names: kotlin.collections.List<kotlin.String>?, bookmarkedBy: kotlin.collections.List<java.util.UUID>?, limit: kotlin.Int?, offset: kotlin.Int?) : ApiResponse<ApiResponsePageCharacter?> {
+        val localVariableConfig = searchCharacterApiV1CharactersGetRequestConfig(ids = ids, ownerIds = ownerIds, names = names, bookmarkedBy = bookmarkedBy, limit = limit, offset = offset)
 
         return request<Unit, ApiResponsePageCharacter>(
             localVariableConfig
@@ -326,11 +614,12 @@ class CharactersApi(basePath: kotlin.String = defaultBasePath, client: OkHttpCli
      * @param ids  (optional)
      * @param ownerIds  (optional)
      * @param names  (optional)
+     * @param bookmarkedBy  (optional)
      * @param limit  (optional, default to 50)
      * @param offset  (optional, default to 0)
      * @return RequestConfig
      */
-    fun searchCharacterApiV1CharactersGetRequestConfig(ids: kotlin.collections.List<java.util.UUID>?, ownerIds: kotlin.collections.List<java.util.UUID>?, names: kotlin.collections.List<kotlin.String>?, limit: kotlin.Int?, offset: kotlin.Int?) : RequestConfig<Unit> {
+    fun searchCharacterApiV1CharactersGetRequestConfig(ids: kotlin.collections.List<java.util.UUID>?, ownerIds: kotlin.collections.List<java.util.UUID>?, names: kotlin.collections.List<kotlin.String>?, bookmarkedBy: kotlin.collections.List<java.util.UUID>?, limit: kotlin.Int?, offset: kotlin.Int?) : RequestConfig<Unit> {
         val localVariableBody = null
         val localVariableQuery: MultiValueMap = mutableMapOf<kotlin.String, kotlin.collections.List<kotlin.String>>()
             .apply {
@@ -342,6 +631,9 @@ class CharactersApi(basePath: kotlin.String = defaultBasePath, client: OkHttpCli
                 }
                 if (names != null) {
                     put("names", toMultiValue(names.toList(), "multi"))
+                }
+                if (bookmarkedBy != null) {
+                    put("bookmarked_by", toMultiValue(bookmarkedBy.toList(), "multi"))
                 }
                 if (limit != null) {
                     put("limit", listOf(limit.toString()))
@@ -356,6 +648,148 @@ class CharactersApi(basePath: kotlin.String = defaultBasePath, client: OkHttpCli
         return RequestConfig(
             method = RequestMethod.GET,
             path = "/api/v1/characters/",
+            query = localVariableQuery,
+            headers = localVariableHeaders,
+            requiresAuthentication = true,
+            body = localVariableBody
+        )
+    }
+
+    /**
+     * Unbookmark Character
+     * 
+     * @param characterId 
+     * @return ApiResponseBookmarkState
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
+    fun unbookmarkCharacterApiV1CharactersCharacterIdBookmarkDelete(characterId: java.util.UUID) : ApiResponseBookmarkState {
+        val localVarResponse = unbookmarkCharacterApiV1CharactersCharacterIdBookmarkDeleteWithHttpInfo(characterId = characterId)
+
+        return when (localVarResponse.responseType) {
+            ResponseType.Success -> (localVarResponse as Success<*>).data as ApiResponseBookmarkState
+            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
+            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
+            ResponseType.ClientError -> {
+                val localVarError = localVarResponse as ClientError<*>
+                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
+            }
+            ResponseType.ServerError -> {
+                val localVarError = localVarResponse as ServerError<*>
+                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()} ${localVarError.body}", localVarError.statusCode, localVarResponse)
+            }
+        }
+    }
+
+    /**
+     * Unbookmark Character
+     * 
+     * @param characterId 
+     * @return ApiResponse<ApiResponseBookmarkState?>
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class)
+    fun unbookmarkCharacterApiV1CharactersCharacterIdBookmarkDeleteWithHttpInfo(characterId: java.util.UUID) : ApiResponse<ApiResponseBookmarkState?> {
+        val localVariableConfig = unbookmarkCharacterApiV1CharactersCharacterIdBookmarkDeleteRequestConfig(characterId = characterId)
+
+        return request<Unit, ApiResponseBookmarkState>(
+            localVariableConfig
+        )
+    }
+
+    /**
+     * To obtain the request config of the operation unbookmarkCharacterApiV1CharactersCharacterIdBookmarkDelete
+     *
+     * @param characterId 
+     * @return RequestConfig
+     */
+    fun unbookmarkCharacterApiV1CharactersCharacterIdBookmarkDeleteRequestConfig(characterId: java.util.UUID) : RequestConfig<Unit> {
+        val localVariableBody = null
+        val localVariableQuery: MultiValueMap = mutableMapOf()
+        val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Accept"] = "application/json"
+
+        return RequestConfig(
+            method = RequestMethod.DELETE,
+            path = "/api/v1/characters/{character_id}/bookmark".replace("{"+"character_id"+"}", encodeURIComponent(characterId.toString())),
+            query = localVariableQuery,
+            headers = localVariableHeaders,
+            requiresAuthentication = true,
+            body = localVariableBody
+        )
+    }
+
+    /**
+     * Unlike Character
+     * 
+     * @param characterId 
+     * @return ApiResponseLikeState
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
+    fun unlikeCharacterApiV1CharactersCharacterIdLikeDelete(characterId: java.util.UUID) : ApiResponseLikeState {
+        val localVarResponse = unlikeCharacterApiV1CharactersCharacterIdLikeDeleteWithHttpInfo(characterId = characterId)
+
+        return when (localVarResponse.responseType) {
+            ResponseType.Success -> (localVarResponse as Success<*>).data as ApiResponseLikeState
+            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
+            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
+            ResponseType.ClientError -> {
+                val localVarError = localVarResponse as ClientError<*>
+                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
+            }
+            ResponseType.ServerError -> {
+                val localVarError = localVarResponse as ServerError<*>
+                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()} ${localVarError.body}", localVarError.statusCode, localVarResponse)
+            }
+        }
+    }
+
+    /**
+     * Unlike Character
+     * 
+     * @param characterId 
+     * @return ApiResponse<ApiResponseLikeState?>
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class)
+    fun unlikeCharacterApiV1CharactersCharacterIdLikeDeleteWithHttpInfo(characterId: java.util.UUID) : ApiResponse<ApiResponseLikeState?> {
+        val localVariableConfig = unlikeCharacterApiV1CharactersCharacterIdLikeDeleteRequestConfig(characterId = characterId)
+
+        return request<Unit, ApiResponseLikeState>(
+            localVariableConfig
+        )
+    }
+
+    /**
+     * To obtain the request config of the operation unlikeCharacterApiV1CharactersCharacterIdLikeDelete
+     *
+     * @param characterId 
+     * @return RequestConfig
+     */
+    fun unlikeCharacterApiV1CharactersCharacterIdLikeDeleteRequestConfig(characterId: java.util.UUID) : RequestConfig<Unit> {
+        val localVariableBody = null
+        val localVariableQuery: MultiValueMap = mutableMapOf()
+        val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Accept"] = "application/json"
+
+        return RequestConfig(
+            method = RequestMethod.DELETE,
+            path = "/api/v1/characters/{character_id}/like".replace("{"+"character_id"+"}", encodeURIComponent(characterId.toString())),
             query = localVariableQuery,
             headers = localVariableHeaders,
             requiresAuthentication = true,
