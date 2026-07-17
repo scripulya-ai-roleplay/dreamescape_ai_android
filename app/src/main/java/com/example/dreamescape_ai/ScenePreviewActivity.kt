@@ -5,17 +5,22 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.snapping.SnapLayoutInfoProvider
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -23,9 +28,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,7 +40,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Image
@@ -45,13 +50,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,6 +65,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -74,6 +79,7 @@ import com.example.dreamescape_ai.ui.components.BookmarkButton
 import com.example.dreamescape_ai.ui.components.LikeButton
 import com.example.dreamescape_ai.ui.theme.Dreamescape_aiTheme
 import java.util.UUID
+import kotlin.math.abs
 
 class ScenePreviewActivity : ComponentActivity() {
 
@@ -153,72 +159,75 @@ fun ScenePreviewScreen(
         )
     }
 
-    Column(
-        modifier = modifier.verticalScroll(rememberScrollState())
-    ) {
-        SceneHero(
-            title = uiState.scene?.title ?: "Title there",
-            imageUrl = uiState.heroImageUrl,
-            isLoading = uiState.scene == null && uiState.isLoading,
-            onBack = onBack
-        )
-
-        val errorMessage = uiState.errorMessage
-        if (uiState.scene == null && errorMessage != null) {
-            Text(
-                text = errorMessage,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(16.dp)
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.verticalScroll(rememberScrollState())
+        ) {
+            SceneHero(
+                title = uiState.scene?.title ?: "Title there",
+                imageUrl = uiState.heroImageUrl,
+                isLoading = uiState.scene == null && uiState.isLoading,
+                onBack = onBack
             )
+
+            val errorMessage = uiState.errorMessage
+            if (uiState.scene == null && errorMessage != null) {
+                Text(
+                    text = errorMessage,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+
+            CharacterCarouselSection(
+                characters = uiState.characters,
+                onCharacterClick = { card ->
+                    card.character.id?.let { id ->
+                        context.startActivity(
+                            Intent(context, CharacterPreviewActivity::class.java).apply {
+                                putExtra(CharacterPreviewActivity.EXTRA_CHARACTER_ID, id.toString())
+                            }
+                        )
+                    }
+                }
+            )
+
+            DescriptionSection(uiState = uiState)
+
+            StartChatAndEngagementSection(
+                isLiked = uiState.isLiked,
+                likesCount = uiState.likesCount,
+                isBookmarked = uiState.isBookmarked,
+                engagementError = uiState.engagementError,
+                isCreatingChat = uiState.isCreatingChat,
+                chatCreationError = uiState.chatCreationError,
+                onToggleLike = viewModel::toggleLike,
+                onToggleBookmark = viewModel::toggleBookmark,
+                onStartChat = {
+                    // Load the user's playable characters, then let them pick a persona
+                    // (or start without one) before the chat is created.
+                    viewModel.loadEligibleCharacters()
+                    showPersonaPicker = true
+                }
+            )
+
+            Spacer(modifier = Modifier.navigationBarsPadding())
         }
 
-        CharacterCarouselSection(
-            characters = uiState.characters,
-            onCharacterClick = { card ->
-                card.character.id?.let { id ->
-                    context.startActivity(
-                        Intent(context, CharacterPreviewActivity::class.java).apply {
-                            putExtra(CharacterPreviewActivity.EXTRA_CHARACTER_ID, id.toString())
-                        }
-                    )
-                }
-            }
-        )
-
-        DescriptionSection(uiState = uiState)
-
-        StartChatAndEngagementSection(
-            isLiked = uiState.isLiked,
-            likesCount = uiState.likesCount,
-            isBookmarked = uiState.isBookmarked,
-            engagementError = uiState.engagementError,
-            isCreatingChat = uiState.isCreatingChat,
-            chatCreationError = uiState.chatCreationError,
-            onToggleLike = viewModel::toggleLike,
-            onToggleBookmark = viewModel::toggleBookmark,
-            onStartChat = {
-                // Load the user's playable characters, then let them pick a persona
-                // (or start without one) before the chat is created.
-                viewModel.loadEligibleCharacters()
-                showPersonaPicker = true
-            }
-        )
-
-        Spacer(modifier = Modifier.navigationBarsPadding())
-    }
-
-    if (showPersonaPicker) {
-        PersonaPickerSheet(
-            characters = uiState.eligibleCharacters,
-            selectedCharacterId = uiState.selectedCharacterId,
-            onPick = { characterId ->
-                viewModel.selectCharacter(characterId)
-                viewModel.startChat()
-                showPersonaPicker = false
-            },
-            onDismiss = { showPersonaPicker = false }
-        )
+        if (showPersonaPicker) {
+            PersonaPickerScreen(
+                characters = uiState.eligibleCharacters,
+                areLoaded = uiState.areEligibleLoaded,
+                isCreatingChat = uiState.isCreatingChat,
+                onPick = { characterId ->
+                    viewModel.selectCharacter(characterId)
+                    viewModel.startChat()
+                    showPersonaPicker = false
+                },
+                onDismiss = { showPersonaPicker = false }
+            )
+        }
     }
 }
 
@@ -452,91 +461,192 @@ private fun StartChatAndEngagementSection(
 }
 
 /**
- * Bottom sheet listing the characters the user may play as (bookmarked or
- * created), plus a "no persona" option. Picking one creates the chat with that
- * [org.openapitools.client.models.Chat.userCharacterId].
+ * Full-screen persona picker: a horizontal, center-snapping carousel of the
+ * characters the user may play as (bookmarked or created), with a leading
+ * "no persona" card. The card currently centered is the selection; the confirm
+ * button creates the chat with that persona
+ * ([org.openapitools.client.models.Chat.userCharacterId], null for "no persona").
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PersonaPickerSheet(
+private fun PersonaPickerScreen(
     characters: List<CharacterCardState>,
-    selectedCharacterId: UUID?,
+    areLoaded: Boolean,
+    isCreatingChat: Boolean,
     onPick: (UUID?) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState()
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState
+    val listState = rememberLazyListState()
+
+    // The "no persona" card lives at index 0, so character cards start at index 1.
+    // Whichever card is nearest the viewport center is the active selection.
+    val centeredIndex by remember {
+        derivedStateOf {
+            val center = (listState.layoutInfo.viewportStartOffset +
+                listState.layoutInfo.viewportEndOffset) / 2
+            listState.layoutInfo.visibleItemsInfo
+                .minByOrNull { abs((it.offset + it.size / 2) - center) }
+                ?.index
+                ?: 0
+        }
+    }
+    val centeredCard = if (centeredIndex == 0) null
+        else characters.getOrNull(centeredIndex - 1)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
     ) {
-        Text(
-            text = "Play as",
-            fontWeight = FontWeight.Bold,
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(start = 24.dp, top = 4.dp, bottom = 4.dp)
-        )
-        LazyColumn(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 420.dp)
+                .statusBarsPadding()
+                .padding(start = 4.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            item(key = "none") {
-                PersonaPickerRow(
-                    title = "Start without a character",
-                    portraitUrl = null,
-                    isSelected = selectedCharacterId == null,
-                    onClick = { onPick(null) }
+            IconButton(onClick = onDismiss) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = MaterialTheme.colorScheme.onBackground
                 )
             }
-            if (characters.isEmpty()) {
-                item(key = "empty") {
+            Text(
+                text = "Play as",
+                color = MaterialTheme.colorScheme.onBackground,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            contentAlignment = Alignment.Center
+        ) {
+            if (!areLoaded) {
+                CircularProgressIndicator()
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                        val cardWidth = 180.dp
+                        val sidePadding = (maxWidth - cardWidth) / 2
+                        LazyRow(
+                            state = listState,
+                            contentPadding = PaddingValues(horizontal = sidePadding),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            flingBehavior = rememberSnapFlingBehavior(
+                                remember(listState) { SnapLayoutInfoProvider(listState) }
+                            )
+                        ) {
+                            item(key = "none") {
+                                PersonaCarouselCard(
+                                    name = "No character",
+                                    imageUrl = null,
+                                    isCentered = centeredIndex == 0
+                                )
+                            }
+                            itemsIndexed(
+                                characters,
+                                key = { _, card -> card.character.id ?: card.character.name }
+                            ) { index, card ->
+                                PersonaCarouselCard(
+                                    name = card.character.name,
+                                    imageUrl = card.imageUrl,
+                                    isCentered = centeredIndex == index + 1
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
                     Text(
-                        text = "You haven't bookmarked or created any characters yet.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
+                        text = centeredCard?.character?.name ?: "No character",
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.titleMedium
                     )
+                    if (characters.isEmpty()) {
+                        Text(
+                            text = "You haven't bookmarked or created any characters yet.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 4.dp, start = 24.dp, end = 24.dp)
+                        )
+                    }
                 }
             }
-            items(characters, key = { it.character.id ?: it.character.name }) { card ->
-                PersonaPickerRow(
-                    title = card.character.name,
-                    portraitUrl = card.imageUrl,
-                    isSelected = card.character.id == selectedCharacterId,
-                    onClick = { card.character.id?.let(onPick) }
+        }
+
+        Button(
+            onClick = { onPick(centeredCard?.character?.id) },
+            enabled = areLoaded && !isCreatingChat,
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(16.dp)
+        ) {
+            if (isCreatingChat) {
+                CircularProgressIndicator()
+            } else {
+                Text(
+                    text = if (centeredCard == null) "Start without a character"
+                    else "Start Chat as ${centeredCard.character.name}"
                 )
             }
         }
-        Spacer(Modifier.navigationBarsPadding())
     }
 }
 
+/** One portrait card in the persona carousel; the centered card is emphasized. */
 @Composable
-private fun PersonaPickerRow(
-    title: String,
-    portraitUrl: String?,
-    isSelected: Boolean,
-    onClick: () -> Unit
+private fun PersonaCarouselCard(
+    name: String,
+    imageUrl: String?,
+    isCentered: Boolean,
+    modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 24.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    val targetScale by animateFloatAsState(
+        targetValue = if (isCentered) 1f else 0.8f,
+        label = "personaCardScale"
+    )
+    val targetAlpha by animateFloatAsState(
+        targetValue = if (isCentered) 1f else 0.6f,
+        label = "personaCardAlpha"
+    )
+    Column(
+        modifier = modifier
+            .width(180.dp)
+            .graphicsLayer {
+                scaleX = targetScale
+                scaleY = targetScale
+                alpha = targetAlpha
+            },
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        val shape = RoundedCornerShape(20.dp)
         Box(
             modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
+                .fillMaxWidth()
+                .aspectRatio(0.66f)
+                .clip(shape)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .then(
+                    if (isCentered) Modifier.border(3.dp, MaterialTheme.colorScheme.primary, shape)
+                    else Modifier
+                ),
             contentAlignment = Alignment.Center
         ) {
-            if (portraitUrl != null) {
+            if (imageUrl != null) {
                 AsyncImage(
-                    model = portraitUrl,
-                    contentDescription = title,
+                    model = imageUrl,
+                    contentDescription = name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -544,22 +654,22 @@ private fun PersonaPickerRow(
                 Icon(
                     imageVector = Icons.Filled.Person,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(48.dp)
                 )
             }
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         Text(
-            text = title,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.weight(1f)
+            text = name,
+            color = MaterialTheme.colorScheme.onBackground,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
-        if (isSelected) {
-            Icon(
-                imageVector = Icons.Filled.Check,
-                contentDescription = "Selected",
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
     }
 }
 
