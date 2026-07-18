@@ -21,8 +21,10 @@ import okhttp3.HttpUrl
 
 import org.openapitools.client.models.ApiResponseBookmarkState
 import org.openapitools.client.models.ApiResponseLikeState
+import org.openapitools.client.models.ApiResponseListCharacter
 import org.openapitools.client.models.ApiResponsePageScene
 import org.openapitools.client.models.ApiResponseScene
+import org.openapitools.client.models.AttachCharactersDTO
 import org.openapitools.client.models.HTTPValidationError
 import org.openapitools.client.models.ModelApiResponse
 import org.openapitools.client.models.Scene
@@ -51,6 +53,81 @@ class ScenesApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient 
         val defaultBasePath: String by lazy {
             System.getProperties().getProperty(ApiClient.baseUrlKey, "http://localhost")
         }
+    }
+
+    /**
+     * Attach Characters To Scene
+     * 
+     * @param sceneId 
+     * @param attachCharactersDTO 
+     * @return ModelApiResponse
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
+    fun attachCharactersToSceneApiV1ScenesSceneIdCharactersPost(sceneId: java.util.UUID, attachCharactersDTO: AttachCharactersDTO) : ModelApiResponse {
+        val localVarResponse = attachCharactersToSceneApiV1ScenesSceneIdCharactersPostWithHttpInfo(sceneId = sceneId, attachCharactersDTO = attachCharactersDTO)
+
+        return when (localVarResponse.responseType) {
+            ResponseType.Success -> (localVarResponse as Success<*>).data as ModelApiResponse
+            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
+            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
+            ResponseType.ClientError -> {
+                val localVarError = localVarResponse as ClientError<*>
+                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
+            }
+            ResponseType.ServerError -> {
+                val localVarError = localVarResponse as ServerError<*>
+                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()} ${localVarError.body}", localVarError.statusCode, localVarResponse)
+            }
+        }
+    }
+
+    /**
+     * Attach Characters To Scene
+     * 
+     * @param sceneId 
+     * @param attachCharactersDTO 
+     * @return ApiResponse<ModelApiResponse?>
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class)
+    fun attachCharactersToSceneApiV1ScenesSceneIdCharactersPostWithHttpInfo(sceneId: java.util.UUID, attachCharactersDTO: AttachCharactersDTO) : ApiResponse<ModelApiResponse?> {
+        val localVariableConfig = attachCharactersToSceneApiV1ScenesSceneIdCharactersPostRequestConfig(sceneId = sceneId, attachCharactersDTO = attachCharactersDTO)
+
+        return request<AttachCharactersDTO, ModelApiResponse>(
+            localVariableConfig
+        )
+    }
+
+    /**
+     * To obtain the request config of the operation attachCharactersToSceneApiV1ScenesSceneIdCharactersPost
+     *
+     * @param sceneId 
+     * @param attachCharactersDTO 
+     * @return RequestConfig
+     */
+    fun attachCharactersToSceneApiV1ScenesSceneIdCharactersPostRequestConfig(sceneId: java.util.UUID, attachCharactersDTO: AttachCharactersDTO) : RequestConfig<AttachCharactersDTO> {
+        val localVariableBody = attachCharactersDTO
+        val localVariableQuery: MultiValueMap = mutableMapOf()
+        val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Content-Type"] = "application/json"
+        localVariableHeaders["Accept"] = "application/json"
+
+        return RequestConfig(
+            method = RequestMethod.POST,
+            path = "/api/v1/scenes/{scene_id}/characters".replace("{"+"scene_id"+"}", encodeURIComponent(sceneId.toString())),
+            query = localVariableQuery,
+            headers = localVariableHeaders,
+            requiresAuthentication = true,
+            body = localVariableBody
+        )
     }
 
     /**
@@ -331,6 +408,77 @@ class ScenesApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient 
         return RequestConfig(
             method = RequestMethod.GET,
             path = "/api/v1/scenes/{scene_id}/bookmark".replace("{"+"scene_id"+"}", encodeURIComponent(sceneId.toString())),
+            query = localVariableQuery,
+            headers = localVariableHeaders,
+            requiresAuthentication = true,
+            body = localVariableBody
+        )
+    }
+
+    /**
+     * Get Scene Characters
+     * 
+     * @param sceneId 
+     * @return ApiResponseListCharacter
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
+    fun getSceneCharactersApiV1ScenesSceneIdCharactersGet(sceneId: java.util.UUID) : ApiResponseListCharacter {
+        val localVarResponse = getSceneCharactersApiV1ScenesSceneIdCharactersGetWithHttpInfo(sceneId = sceneId)
+
+        return when (localVarResponse.responseType) {
+            ResponseType.Success -> (localVarResponse as Success<*>).data as ApiResponseListCharacter
+            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
+            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
+            ResponseType.ClientError -> {
+                val localVarError = localVarResponse as ClientError<*>
+                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
+            }
+            ResponseType.ServerError -> {
+                val localVarError = localVarResponse as ServerError<*>
+                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()} ${localVarError.body}", localVarError.statusCode, localVarResponse)
+            }
+        }
+    }
+
+    /**
+     * Get Scene Characters
+     * 
+     * @param sceneId 
+     * @return ApiResponse<ApiResponseListCharacter?>
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class)
+    fun getSceneCharactersApiV1ScenesSceneIdCharactersGetWithHttpInfo(sceneId: java.util.UUID) : ApiResponse<ApiResponseListCharacter?> {
+        val localVariableConfig = getSceneCharactersApiV1ScenesSceneIdCharactersGetRequestConfig(sceneId = sceneId)
+
+        return request<Unit, ApiResponseListCharacter>(
+            localVariableConfig
+        )
+    }
+
+    /**
+     * To obtain the request config of the operation getSceneCharactersApiV1ScenesSceneIdCharactersGet
+     *
+     * @param sceneId 
+     * @return RequestConfig
+     */
+    fun getSceneCharactersApiV1ScenesSceneIdCharactersGetRequestConfig(sceneId: java.util.UUID) : RequestConfig<Unit> {
+        val localVariableBody = null
+        val localVariableQuery: MultiValueMap = mutableMapOf()
+        val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Accept"] = "application/json"
+
+        return RequestConfig(
+            method = RequestMethod.GET,
+            path = "/api/v1/scenes/{scene_id}/characters".replace("{"+"scene_id"+"}", encodeURIComponent(sceneId.toString())),
             query = localVariableQuery,
             headers = localVariableHeaders,
             requiresAuthentication = true,

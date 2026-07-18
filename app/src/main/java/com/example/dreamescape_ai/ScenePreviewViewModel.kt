@@ -15,10 +15,12 @@ import org.openapitools.client.apis.MediaApi
 import org.openapitools.client.apis.ScenesApi
 import org.openapitools.client.models.ApiResponseBookmarkState
 import org.openapitools.client.models.ApiResponseLikeState
+import org.openapitools.client.models.ApiResponseListCharacter
 import org.openapitools.client.models.ApiResponsePageCharacter
 import org.openapitools.client.models.ApiResponsePageChat
 import org.openapitools.client.models.ApiResponsePageMediaAssetDTO
 import org.openapitools.client.models.ApiResponseScene
+import org.openapitools.client.models.AttachCharactersDTO
 import org.openapitools.client.models.Character
 import org.openapitools.client.models.Chat
 import org.openapitools.client.models.MediaEntityType
@@ -52,7 +54,16 @@ data class ScenePreviewUiState(
     // Persona picker: characters the user may play as (bookmarked + created).
     val eligibleCharacters: List<CharacterCardState> = emptyList(),
     val areEligibleLoaded: Boolean = false,
-    val selectedCharacterId: UUID? = null
+    val selectedCharacterId: UUID? = null,
+    // Whether the current user owns this scene — only owners may attach characters.
+    val isOwner: Boolean = false,
+    // "Add characters" picker: characters the owner may attach to this scene.
+    val attachCandidates: List<CharacterCardState> = emptyList(),
+    val areAttachCandidatesLoaded: Boolean = false,
+    val selectedAttachIds: Set<UUID> = emptySet(),
+    val isAttachingCharacters: Boolean = false,
+    val attachError: String? = null,
+    val attachSuccess: Boolean = false
 )
 
 class ScenePreviewViewModel(
@@ -63,11 +74,11 @@ class ScenePreviewViewModel(
     private val sceneImageCall: (UUID) -> ApiResponsePageMediaAssetDTO = { entityId ->
         MediaApi().searchMediaApiV1MediaGet(entityType = MediaEntityType.scene, entityId = entityId, limit = 1)
     },
-    // The Scene DTO does not expose its characters, so the carousel is populated
-    // from the characters owned by the scene's author — the closest available
-    // signal for the cast of a story.
-    private val searchCharactersCall: (ownerIds: List<UUID>?) -> ApiResponsePageCharacter = { ownerIds ->
-        CharactersApi().searchCharacterApiV1CharactersGet(ownerIds = ownerIds, limit = 50)
+    // The scene's cast: characters attached to it (POST /scenes/{id}/characters),
+    // read back through GET /scenes/{id}/characters — the source of truth, not the
+    // owner's whole roster.
+    private val getSceneCharactersCall: (sceneId: UUID) -> ApiResponseListCharacter = { id ->
+        ScenesApi().getSceneCharactersApiV1ScenesSceneIdCharactersGet(sceneId = id)
     },
     private val characterImageCall: (UUID) -> ApiResponsePageMediaAssetDTO = { entityId ->
         MediaApi().searchMediaApiV1MediaGet(entityType = MediaEntityType.character, entityId = entityId, limit = 1)
@@ -98,6 +109,14 @@ class ScenePreviewViewModel(
     private val searchOwnedCharactersCall: (List<UUID>) -> ApiResponsePageCharacter = { userIds ->
         CharactersApi().searchCharacterApiV1CharactersGet(ownerIds = userIds, limit = 50)
     },
+    // Attaches characters to this scene (POST /scenes/{id}/characters). Owner-only
+    // on the backend (403 otherwise); the picker is only surfaced to the owner.
+    private val attachCharactersCall: (sceneId: UUID, characterIds: List<UUID>) -> ModelApiResponse = { id, ids ->
+        ScenesApi().attachCharactersToSceneApiV1ScenesSceneIdCharactersPost(
+            sceneId = id,
+            attachCharactersDTO = AttachCharactersDTO(characterIds = ids)
+        )
+    },
     private val userId: UUID = JwtTokenProvider().userId,
     private val searchChatsCall: (userIds: List<UUID>?, offset: Int?, limit: Int?) -> ApiResponsePageChat = { userIds, offset, limit ->
         ChatsApi().searchChatsApiV1ChatsGet(userIds = userIds, offset = offset, limit = limit)
@@ -122,9 +141,13 @@ class ScenePreviewViewModel(
         viewModelScope.launch(ioDispatcher) {
             try {
                 val scene = getSceneCall(sceneId).result
-                _uiState.value = _uiState.value.copy(scene = scene, isLoading = false)
+                _uiState.value = _uiState.value.copy(
+                    scene = scene,
+                    isLoading = false,
+                    isOwner = scene.ownerId == userId
+                )
                 resolveHeroImage(scene.id)
-                loadCharacters(scene.ownerId)
+                loadCharacters()
                 loadEngagementState(scene.id)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
@@ -282,6 +305,80 @@ class ScenePreviewViewModel(
     }
 
     /**
+     * Characters the owner may attach to this scene: those they created. Loaded
+     * lazily when the "Add characters" picker opens; portraits resolve via the
+     * shared [updateCharacterImage] (which also refreshes this list).
+     */
+    fun loadAttachCandidates() {
+        if (_uiState.value.areAttachCandidatesLoaded) return
+        viewModelScope.launch(ioDispatcher) {
+            val owned = try {
+                searchOwnedCharactersCall(listOf(userId)).result.items
+            } catch (_: Exception) {
+                emptyList()
+            }
+            val cards = owned.map { CharacterCardState(character = it) }
+            _uiState.value = _uiState.value.copy(
+                attachCandidates = cards,
+                areAttachCandidatesLoaded = true
+            )
+            resolveCharacterImages(cards)
+        }
+    }
+
+    /** Toggles membership of [characterId] in the attach selection. */
+    fun toggleAttachSelection(characterId: UUID) {
+        val current = _uiState.value.selectedAttachIds
+        _uiState.value = _uiState.value.copy(
+            selectedAttachIds = if (characterId in current) current - characterId else current + characterId
+        )
+    }
+
+    /**
+     * Attaches the selected characters to this scene via
+     * `POST /scenes/{id}/characters`. Idempotent on the backend (re-adding an
+     * already-attached character is a no-op). The endpoint is owner-only; the
+     * picker is only shown to owners, so a 403 here is unexpected.
+     */
+    fun attachSelectedCharacters() {
+        val sceneId = _uiState.value.scene?.id ?: return
+        val selected = _uiState.value.selectedAttachIds
+        if (selected.isEmpty()) {
+            _uiState.value = _uiState.value.copy(attachError = "Select at least one character")
+            return
+        }
+        if (_uiState.value.isAttachingCharacters) return
+        _uiState.value = _uiState.value.copy(
+            isAttachingCharacters = true,
+            attachError = null,
+            attachSuccess = false
+        )
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                attachCharactersCall(sceneId, selected.toList())
+                _uiState.value = _uiState.value.copy(
+                    isAttachingCharacters = false,
+                    attachSuccess = true,
+                    selectedAttachIds = emptySet()
+                )
+                // Refresh the carousel so the just-attached characters appear
+                // without forcing the user to reopen the scene.
+                loadCharacters()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isAttachingCharacters = false,
+                    attachError = e.message ?: "Failed to add characters"
+                )
+            }
+        }
+    }
+
+    /** Resets the transient attach-success flag once the picker has dismissed. */
+    fun consumeAttachSuccess() {
+        _uiState.value = _uiState.value.copy(attachSuccess = false)
+    }
+
+    /**
      * The create-chat response is `{"result":{"id":"<uuid>"}, ...}`. The result
      * is untyped (`Any?`), which Moshi deserializes as a `Map<String, Any?>` for
      * a JSON object, so the server-assigned id is pulled out of it.
@@ -310,10 +407,10 @@ class ScenePreviewViewModel(
         }
     }
 
-    private fun loadCharacters(ownerId: UUID) {
+    private fun loadCharacters() {
         viewModelScope.launch(ioDispatcher) {
             val characters = try {
-                searchCharactersCall(listOf(ownerId)).result.items
+                getSceneCharactersCall(sceneId).result
             } catch (_: Exception) {
                 emptyList()
             }
@@ -343,13 +440,17 @@ class ScenePreviewViewModel(
 
     private fun updateCharacterImage(characterId: UUID, url: String?) {
         val current = _uiState.value
-        // A resolved portrait applies wherever the character appears — both the
-        // cast carousel and the persona-picker list reference the same ids.
+        // A resolved portrait applies wherever the character appears — the cast
+        // carousel, the persona-picker list, and the attach-characters picker all
+        // reference the same ids.
         _uiState.value = current.copy(
             characters = current.characters.map {
                 if (it.character.id == characterId) it.copy(imageUrl = url, imageResolved = true) else it
             },
             eligibleCharacters = current.eligibleCharacters.map {
+                if (it.character.id == characterId) it.copy(imageUrl = url, imageResolved = true) else it
+            },
+            attachCandidates = current.attachCandidates.map {
                 if (it.character.id == characterId) it.copy(imageUrl = url, imageResolved = true) else it
             }
         )

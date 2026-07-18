@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -44,7 +45,9 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -52,6 +55,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -146,6 +150,7 @@ fun ScenePreviewScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     var showPersonaPicker by remember { mutableStateOf(false) }
+    var showAttachPicker by remember { mutableStateOf(false) }
 
     // When the ViewModel finishes creating a chat, navigate to it. Keyed on the
     // chat id so it fires once per created chat and is skipped while null.
@@ -157,6 +162,14 @@ fun ScenePreviewScreen(
                 putExtra(ChatActivity.EXTRA_CHAT_TITLE, uiState.createdChatTitle ?: "Chat")
             }
         )
+    }
+
+    // Dismiss the attach-characters picker once the request succeeds.
+    LaunchedEffect(uiState.attachSuccess) {
+        if (uiState.attachSuccess) {
+            showAttachPicker = false
+            viewModel.consumeAttachSuccess()
+        }
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -182,6 +195,7 @@ fun ScenePreviewScreen(
 
             CharacterCarouselSection(
                 characters = uiState.characters,
+                isOwner = uiState.isOwner,
                 onCharacterClick = { card ->
                     card.character.id?.let { id ->
                         context.startActivity(
@@ -190,6 +204,12 @@ fun ScenePreviewScreen(
                             }
                         )
                     }
+                },
+                onAddCharacters = {
+                    // Load the owner's characters, then let them pick which to add
+                    // before the request is sent.
+                    viewModel.loadAttachCandidates()
+                    showAttachPicker = true
                 }
             )
 
@@ -226,6 +246,19 @@ fun ScenePreviewScreen(
                     showPersonaPicker = false
                 },
                 onDismiss = { showPersonaPicker = false }
+            )
+        }
+
+        if (showAttachPicker) {
+            AttachCharactersPickerScreen(
+                candidates = uiState.attachCandidates,
+                areLoaded = uiState.areAttachCandidatesLoaded,
+                selectedIds = uiState.selectedAttachIds,
+                isAttaching = uiState.isAttachingCharacters,
+                error = uiState.attachError,
+                onToggle = viewModel::toggleAttachSelection,
+                onConfirm = viewModel::attachSelectedCharacters,
+                onDismiss = { showAttachPicker = false }
             )
         }
     }
@@ -319,25 +352,49 @@ private fun SceneHero(
 @Composable
 private fun CharacterCarouselSection(
     characters: List<CharacterCardState>,
-    onCharacterClick: (CharacterCardState) -> Unit
+    isOwner: Boolean,
+    onCharacterClick: (CharacterCardState) -> Unit,
+    onAddCharacters: () -> Unit
 ) {
-    if (characters.isEmpty()) return
+    // The owner can curate the cast even when it's empty; everyone else only
+    // sees the section once it has characters.
+    if (characters.isEmpty() && !isOwner) return
 
-    Text(
-        text = "Characters",
-        color = MaterialTheme.colorScheme.onBackground,
-        fontWeight = FontWeight.Bold,
-        style = MaterialTheme.typography.titleMedium,
-        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
-    )
-
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
-        modifier = Modifier.fillMaxWidth()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, top = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        items(characters, key = { it.character.id ?: it.character.name }) { card ->
-            CharacterCard(card = card, onClick = { onCharacterClick(card) })
+        Text(
+            text = "Characters",
+            color = MaterialTheme.colorScheme.onBackground,
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleMedium
+        )
+        if (isOwner) {
+            TextButton(onClick = onAddCharacters) {
+                Icon(
+                    imageVector = Icons.Filled.PersonAdd,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Add characters")
+            }
+        }
+    }
+
+    if (characters.isNotEmpty()) {
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            items(characters, key = { it.character.id ?: it.character.name }) { card ->
+                CharacterCard(card = card, onClick = { onCharacterClick(card) })
+            }
         }
     }
 }
@@ -670,6 +727,170 @@ private fun PersonaCarouselCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+    }
+}
+
+/**
+ * Full-screen, multi-select picker of the owner's characters to attach to the
+ * scene. Mirrors [PersonaPickerScreen]'s chrome (back button + title + sticky
+ * confirm) but uses a scrollable list with per-row selection, since attaching
+ * several characters at once is the norm. Sends [onConfirm], which calls
+ * `POST /scenes/{id}/characters` with the selected ids.
+ */
+@Composable
+private fun AttachCharactersPickerScreen(
+    candidates: List<CharacterCardState>,
+    areLoaded: Boolean,
+    selectedIds: Set<UUID>,
+    isAttaching: Boolean,
+    error: String?,
+    onToggle: (UUID) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(start = 4.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onDismiss) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = MaterialTheme.colorScheme.onBackground
+                )
+            }
+            Text(
+                text = "Add characters",
+                color = MaterialTheme.colorScheme.onBackground,
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium
+            )
+        }
+
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            when {
+                !areLoaded -> Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+                candidates.isEmpty() -> Text(
+                    text = "You haven't created any characters yet.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(24.dp)
+                )
+                else -> LazyColumn(
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(candidates, key = { it.character.id ?: it.character.name }) { card ->
+                        val id = card.character.id
+                        AttachCandidateRow(
+                            card = card,
+                            selected = id != null && id in selectedIds,
+                            onClick = { id?.let(onToggle) }
+                        )
+                    }
+                }
+            }
+        }
+
+        if (error != null) {
+            Text(
+                text = error,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            )
+        }
+
+        val count = selectedIds.size
+        Button(
+            onClick = onConfirm,
+            enabled = areLoaded && !isAttaching && count > 0,
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(16.dp)
+        ) {
+            if (isAttaching) {
+                CircularProgressIndicator()
+            } else {
+                Text(
+                    text = if (count == 0) "Add characters"
+                    else "Add $count character${if (count == 1) "" else "s"}"
+                )
+            }
+        }
+    }
+}
+
+/** One selectable row in the attach-characters picker; selection is outlined. */
+@Composable
+private fun AttachCandidateRow(
+    card: CharacterCardState,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val outline = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .border(2.dp, outline, RoundedCornerShape(12.dp))
+            .clickable { onClick() }
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
+            val url = card.imageUrl
+            if (url != null) {
+                AsyncImage(
+                    model = url,
+                    contentDescription = card.character.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Filled.Person,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Text(
+            text = card.character.name,
+            color = MaterialTheme.colorScheme.onBackground,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+
+        Checkbox(checked = selected, onCheckedChange = { onClick() })
     }
 }
 
