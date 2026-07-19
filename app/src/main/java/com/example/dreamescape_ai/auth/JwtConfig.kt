@@ -35,13 +35,23 @@ object JwtConfig {
      * Subject (`sub`) claim identifying the calling client.
      *
      * The backend interprets this claim as the authenticated user's id and
-     * parses it as a UUID (`UUID(payload.get("sub"))`). It therefore **must** be
-     * a syntactically valid UUID string, otherwise the request is rejected with
-     * `InvalidTokenError: Invalid token payload` (HTTP 500). A stable, hard-coded
-     * UUID is used so the app keeps a consistent identity across requests and
-     * restarts.
+     * parses it as a UUID (`UUID(payload.get("user_id") or payload.get("sub"))`).
+     * It therefore **must** be a syntactically valid UUID string, otherwise the
+     * request is rejected with `InvalidTokenError: Invalid token payload`
+     * (HTTP 401). A stable, hard-coded UUID is used so the app keeps a consistent
+     * identity across requests and restarts.
      */
     const val TOKEN_SUBJECT: String = "00000000-0000-0000-0000-000000000001"
+
+    /**
+     * Role (`role`) claim stamped on the self-signed token.
+     *
+     * The backend's `JWTService.verify_token` parses this with
+     * `UserRole(payload["role"])` and the auth dependency rejects (HTTP 401) any
+     * token that omits it. ``api`` is the least-privilege role and matches the
+     * backend's `UserRole.API`. Valid backend values: `admin`, `api`, `developer`.
+     */
+    const val TOKEN_ROLE: String = "api"
 
     /** Lifetime of a generated token before it expires. */
     val TOKEN_TTL: Duration = Duration.ofHours(1)

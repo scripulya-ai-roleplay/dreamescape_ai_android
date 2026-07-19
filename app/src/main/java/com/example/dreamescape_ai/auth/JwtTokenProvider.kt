@@ -22,6 +22,7 @@ class JwtTokenProvider(
     private val secretKey: String = JwtConfig.JWT_SECRET_KEY,
     private val algorithm: String = JwtConfig.JWT_ALGORITHM,
     private val subject: String = JwtConfig.TOKEN_SUBJECT,
+    private val role: String = JwtConfig.TOKEN_ROLE,
     private val tokenTtl: Duration = JwtConfig.TOKEN_TTL,
     private val clock: () -> Instant = Instant::now
 ) {
@@ -29,6 +30,9 @@ class JwtTokenProvider(
     init {
         require(secretKey.isNotEmpty()) {
             "A non-empty JWT secret key is required to sign $algorithm tokens."
+        }
+        require(role.isNotEmpty()) {
+            "A non-empty role is required; the backend rejects tokens without a role claim."
         }
     }
 
@@ -50,9 +54,12 @@ class JwtTokenProvider(
     /**
      * Builds a freshly signed, compact-serialized JWT.
      *
-     * The token carries the standard `sub`, `iat` and `exp` claims. A new token
-     * is produced on every call (with up-to-date timestamps) so it never expires
-     * while the app is running.
+     * The payload mirrors the backend's agreed token shape `{sub, user_id, role,
+     * exp}` (see `src/application/auth/jwt_service.py`): `sub` and `user_id`
+     * both carry this provider's [subject] (the backend reads user_id-or-sub and
+     * parses it as a UUID), [role] authorizes the caller, and `exp`/`iat` bound
+     * the token's lifetime. A new token is produced on every call (with
+     * up-to-date timestamps) so it never expires while the app is running.
      */
     fun createToken(): String {
         val macAlgorithm = macAlgorithmFor(algorithm)
@@ -63,6 +70,7 @@ class JwtTokenProvider(
         val header = """{"alg":"$algorithm","typ":"JWT"}"""
         val payload = buildPayload(
             subject = subject,
+            role = role,
             issuedAtEpochSeconds = issuedAt.epochSecond,
             expiresAtEpochSeconds = expiresAt.epochSecond
         )
@@ -99,10 +107,11 @@ class JwtTokenProvider(
 
         private fun buildPayload(
             subject: String,
+            role: String,
             issuedAtEpochSeconds: Long,
             expiresAtEpochSeconds: Long
         ): String =
-            """{"sub":"${escapeJson(subject)}","iat":$issuedAtEpochSeconds,"exp":$expiresAtEpochSeconds}"""
+            """{"sub":"${escapeJson(subject)}","user_id":"${escapeJson(subject)}","role":"${escapeJson(role)}","iat":$issuedAtEpochSeconds,"exp":$expiresAtEpochSeconds}"""
 
         private fun escapeJson(value: String): String {
             val sb = StringBuilder(value.length)

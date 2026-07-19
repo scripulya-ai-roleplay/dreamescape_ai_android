@@ -20,11 +20,13 @@ class JwtTokenProviderTest {
         secretKey: String = secret,
         algorithm: String = "HS256",
         subject: String = "00000000-0000-0000-0000-000000000001",
+        role: String = "api",
         ttl: Duration = Duration.ofHours(1)
     ): JwtTokenProvider = JwtTokenProvider(
         secretKey = secretKey,
         algorithm = algorithm,
         subject = subject,
+        role = role,
         tokenTtl = ttl,
         clock = { fixedInstant }
     )
@@ -48,14 +50,37 @@ class JwtTokenProviderTest {
     }
 
     @Test
-    fun `payload contains sub, iat and exp claims`() {
+    fun `payload mirrors the backend agreed token shape`() {
         val payload = decode(provider().createToken().split(".")[1])
 
-        // iat = fixed instant (1_000_000), exp = iat + 1h (3600s) = 1_003_600
+        // Mirrors the backend's {sub, user_id, role, exp} (jwt_service.py) plus
+        // iat. iat = fixed instant (1_000_000), exp = iat + 1h (3600s) = 1_003_600.
         assertEquals(
-            """{"sub":"00000000-0000-0000-0000-000000000001","iat":1000000,"exp":1003600}""",
+            """{"sub":"00000000-0000-0000-0000-000000000001","user_id":"00000000-0000-0000-0000-000000000001","role":"api","iat":1000000,"exp":1003600}""",
             payload
         )
+    }
+
+    @Test
+    fun `payload carries a role the backend accepts`() {
+        // The backend parses role with UserRole(payload["role"]) and 401s without
+        // it; ``api`` is a valid UserRole (least privilege, matches UserRole.API).
+        val role = Regex("\"role\":\"([^\"]*)\"")
+            .find(decode(JwtTokenProvider().createToken().split(".")[1]))!!
+            .groupValues[1]
+
+        assertEquals(JwtConfig.TOKEN_ROLE, role)
+        assertTrue("role must be a backend UserRole value", role in listOf("admin", "api", "developer"))
+    }
+
+    @Test
+    fun `user_id claim duplicates sub for the backend fallback`() {
+        // verify_token reads user_id-or-sub; both must carry the same UUID.
+        val payload = decode(provider().createToken().split(".")[1])
+        val sub = Regex("\"sub\":\"([^\"]*)\"").find(payload)!!.groupValues[1]
+        val userId = Regex("\"user_id\":\"([^\"]*)\"").find(payload)!!.groupValues[1]
+
+        assertEquals(sub, userId)
     }
 
     @Test
@@ -124,6 +149,13 @@ class JwtTokenProviderTest {
     fun `empty secret key is rejected at construction time`() {
         assertThrows(IllegalArgumentException::class.java) {
             provider(secretKey = "")
+        }
+    }
+
+    @Test
+    fun `empty role is rejected at construction time`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            provider(role = "")
         }
     }
 }
