@@ -1,6 +1,7 @@
 package com.example.dreamescape_ai
 
 import android.os.Bundle
+import android.content.Context
 import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -37,6 +38,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.AnnotatedString
@@ -47,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.example.dreamescape_ai.data.ChatModelStore
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.dreamescape_ai.ui.theme.Dreamescape_aiTheme
@@ -145,7 +148,7 @@ fun ChatScreen(
     chatId: UUID,
     modifier: Modifier = Modifier,
     viewModel: ChatViewModel = viewModel(
-        factory = chatViewModelFactory(chatId)
+        factory = chatViewModelFactory(chatId, LocalContext.current.applicationContext)
     )
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -393,10 +396,13 @@ private val messageTimeFormatter: DateTimeFormatter =
 private fun formatMessageTime(dateTime: OffsetDateTime): String =
     dateTime.atZoneSameInstant(ZoneId.systemDefault()).format(messageTimeFormatter)
 
-private fun chatViewModelFactory(chatId: UUID): ViewModelProvider.Factory =
+private fun chatViewModelFactory(chatId: UUID, appContext: Context): ViewModelProvider.Factory =
     object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return ChatViewModel(chatId = chatId) as T
+            return ChatViewModel(
+                chatId = chatId,
+                modelFlow = ChatModelStore.modelFlow(appContext, chatId)
+            ) as T
         }
     }

@@ -1,7 +1,10 @@
 package com.example.dreamescape_ai
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.dreamescape_ai.data.ChatModelStore
+import com.example.dreamescape_ai.data.supportsReasoning
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,6 +17,7 @@ import org.openapitools.client.models.ApiResponseChatSettings
 import org.openapitools.client.models.ChatSettings
 import org.openapitools.client.models.ControlBehavior
 import org.openapitools.client.models.FunctionsSettings
+import org.openapitools.client.models.LLMModelType
 import org.openapitools.client.models.Perspective
 import org.openapitools.client.models.Preset
 import org.openapitools.client.models.ReasoningEffort
@@ -26,6 +30,7 @@ import java.util.UUID
 
 data class ChatSettingsUiState(
     val settings: ChatSettings? = null,
+    val selectedModel: LLMModelType = ChatModelStore.DEFAULT_MODEL,
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val errorMessage: String? = null,
@@ -34,6 +39,7 @@ data class ChatSettingsUiState(
 
 class ChatSettingsViewModel(
     private val chatId: UUID,
+    private val appContext: Context,
     private val getSettingsCall: (UUID) -> ApiResponseChatSettings = { id ->
         ChatSettingsApi().getChatSettingsApiV1ChatsChatIdSettingsGet(id)
     },
@@ -48,6 +54,7 @@ class ChatSettingsViewModel(
 
     init {
         loadSettings()
+        loadSelectedModel()
     }
 
     fun loadSettings() {
@@ -80,6 +87,48 @@ class ChatSettingsViewModel(
     fun update(transform: (ChatSettings) -> ChatSettings) {
         val current = _uiState.value.settings ?: return
         _uiState.value = _uiState.value.copy(settings = transform(current), saved = false)
+    }
+
+    /** Loads the persisted model choice and keeps state in sync with the store. */
+    private fun loadSelectedModel() {
+        viewModelScope.launch(ioDispatcher) {
+            ChatModelStore.modelFlow(appContext, chatId).collect { model ->
+                applyModel(model)
+            }
+        }
+    }
+
+    /**
+     * Selects [model] for this chat: applies it optimistically so the UI reacts
+     * instantly, then writes it to the store (which re-confirms via
+     * [loadSelectedModel]).
+     */
+    fun selectModel(model: LLMModelType) {
+        applyModel(model)
+        viewModelScope.launch(ioDispatcher) {
+            ChatModelStore.setModel(appContext, chatId, model)
+        }
+    }
+
+    /**
+     * Records [model] in state. When the model lacks a reasoning mode, reasoning
+     * is forced off so the persisted settings stay consistent with what the UI
+     * allowed — the model can't honor it anyway.
+     */
+    private fun applyModel(model: LLMModelType) {
+        val current = _uiState.value
+        val settings = current.settings
+        val reconciledSettings =
+            if (!model.supportsReasoning && settings != null && settings.reasoning == Toggle.On) {
+                settings.copy(reasoning = Toggle.Off)
+            } else {
+                settings
+            }
+        _uiState.value = current.copy(
+            selectedModel = model,
+            settings = reconciledSettings,
+            saved = false
+        )
     }
 
     fun save() {

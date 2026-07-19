@@ -7,9 +7,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import okhttp3.Call
 import okhttp3.Request
@@ -66,8 +69,11 @@ class ChatViewModel(
         MessagesApi().createMessageApiV1MessagesPost(dto)
     },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    // TEMPORARY: pin to the latest Z.ai GLM model (glm-5.2) to smoke-test the system end-to-end.
-    private val llmModel: LLMModelType = LLMModelType.glmMinus5Period2,
+    /**
+     * Source of the LLM model used for outgoing messages. Defaults to a glm-5.2
+     * flow; ChatActivity supplies the per-chat persisted choice from ChatModelStore.
+     */
+    private val modelFlow: Flow<LLMModelType> = flowOf(LLMModelType.glmMinus5Period2),
     /**
      * Invoked after a message is sent to wait for the model's reply. Null (the
      * default) uses the real SSE + thinking-timer implementation; tests inject a
@@ -137,17 +143,16 @@ class ChatViewModel(
             return
         }
 
-        val dto = UserMessageDTO(
-            chatId = chatId,
-            message = text,
-            role = ChatRoles.user,
-            llmModel = llmModel
-        )
-
         _uiState.value = _uiState.value.copy(isSending = true, input = "", errorMessage = null)
 
         viewModelScope.launch(ioDispatcher) {
             try {
+                val dto = UserMessageDTO(
+                    chatId = chatId,
+                    message = text,
+                    role = ChatRoles.user,
+                    llmModel = modelFlow.first()
+                )
                 sendMessageCall(dto)
                 // Reload so the user message (and any pending model message) is shown.
                 val response = loadMessagesCall(chatId)

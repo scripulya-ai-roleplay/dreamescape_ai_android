@@ -1,34 +1,46 @@
 package com.example.dreamescape_ai
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -42,13 +54,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.dreamescape_ai.data.displayName
+import com.example.dreamescape_ai.data.formatTokenCount
+import com.example.dreamescape_ai.data.spec
+import com.example.dreamescape_ai.data.supportsReasoning
 import com.example.dreamescape_ai.ui.theme.Dreamescape_aiTheme
 import org.openapitools.client.models.ControlBehavior
+import org.openapitools.client.models.LLMModelType
 import org.openapitools.client.models.Perspective
 import org.openapitools.client.models.Preset
 import org.openapitools.client.models.ReasoningEffort
@@ -117,11 +136,14 @@ class ChatSettingsActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatSettingsScreen(
     chatId: UUID,
     modifier: Modifier = Modifier,
-    viewModel: ChatSettingsViewModel = viewModel(factory = chatSettingsViewModelFactory(chatId)),
+    viewModel: ChatSettingsViewModel = viewModel(
+        factory = chatSettingsViewModelFactory(chatId, LocalContext.current.applicationContext)
+    ),
     onSaved: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -131,6 +153,8 @@ fun ChatSettingsScreen(
     }
 
     val settings = uiState.settings
+    val model = uiState.selectedModel
+    var showModelPicker by remember { mutableStateOf(false) }
     if (uiState.isLoading || settings == null) {
         Box(
             modifier = modifier.fillMaxSize(),
@@ -156,7 +180,13 @@ fun ChatSettingsScreen(
             )
         }
 
-        EnumDropdown(
+        ModelCard(
+            model = model,
+            isSelected = false,
+            onClick = { showModelPicker = true }
+        )
+
+        EnumButtonGroup(
             label = "Perspective",
             options = Perspective.values().toList(),
             selected = settings.perspective,
@@ -164,7 +194,7 @@ fun ChatSettingsScreen(
             onSelect = { v -> viewModel.update { it.copy(perspective = v) } }
         )
 
-        EnumDropdown(
+        EnumButtonGroup(
             label = "Response length",
             options = ResponseLength.values().toList(),
             selected = settings.responseLength,
@@ -172,7 +202,7 @@ fun ChatSettingsScreen(
             onSelect = { v -> viewModel.update { it.copy(responseLength = v) } }
         )
 
-        EnumDropdown(
+        EnumButtonGroup(
             label = "Response token limit",
             options = TokenLimit.values().toList(),
             selected = settings.responseTokenLimit,
@@ -180,7 +210,7 @@ fun ChatSettingsScreen(
             onSelect = { v -> viewModel.update { it.copy(responseTokenLimit = v) } }
         )
 
-        EnumDropdown(
+        EnumButtonGroup(
             label = "AI control behavior",
             options = ControlBehavior.values().toList(),
             selected = settings.aiControlBehavior,
@@ -188,7 +218,7 @@ fun ChatSettingsScreen(
             onSelect = { v -> viewModel.update { it.copy(aiControlBehavior = v) } }
         )
 
-        EnumDropdown(
+        EnumButtonGroup(
             label = "Continue behavior",
             options = ControlBehavior.values().toList(),
             selected = settings.continueBehavior,
@@ -196,18 +226,20 @@ fun ChatSettingsScreen(
             onSelect = { v -> viewModel.update { it.copy(continueBehavior = v) } }
         )
 
-        EnumDropdown(
+        EnumButtonGroup(
             label = "Reasoning effort",
             options = ReasoningEffort.values().toList(),
             selected = settings.reasoningEffort,
             optionText = { it.value },
-            onSelect = { v -> viewModel.update { it.copy(reasoningEffort = v) } }
+            onSelect = { v -> viewModel.update { it.copy(reasoningEffort = v) } },
+            isOptionEnabled = { model.supportsReasoning }
         )
 
         ToggleRow(
             label = "Reasoning",
             checked = settings.reasoning == Toggle.On,
-            onCheckedChange = { v -> viewModel.update { it.copy(reasoning = if (v) Toggle.On else Toggle.Off) } }
+            onCheckedChange = { v -> viewModel.update { it.copy(reasoning = if (v) Toggle.On else Toggle.Off) } },
+            enabled = model.supportsReasoning
         )
 
         ToggleRow(
@@ -226,7 +258,7 @@ fun ChatSettingsScreen(
 
         Text("Temperature", style = MaterialTheme.typography.titleSmall)
 
-        EnumDropdown(
+        EnumButtonGroup(
             label = "Temperature preset",
             options = Preset.values().toList(),
             selected = settings.temperature.preset,
@@ -280,38 +312,107 @@ fun ChatSettingsScreen(
             }
         }
     }
+
+    if (showModelPicker) {
+        ModalBottomSheet(onDismissRequest = { showModelPicker = false }) {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(LLMModelType.values().toList()) { option ->
+                    ModelCard(
+                        model = option,
+                        isSelected = option == model,
+                        onClick = {
+                            viewModel.selectModel(option)
+                            showModelPicker = false
+                        }
+                    )
+                }
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun <T> EnumDropdown(
+private fun <T> EnumButtonGroup(
     label: String,
     options: List<T>,
     selected: T,
     optionText: (T) -> String,
-    onSelect: (T) -> Unit
+    onSelect: (T) -> Unit,
+    isOptionEnabled: (T) -> Boolean = { true }
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, style = MaterialTheme.typography.labelLarge)
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            options.forEachIndexed { index, option ->
+                SegmentedButton(
+                    selected = option == selected,
+                    onClick = { onSelect(option) },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                    enabled = isOptionEnabled(option)
+                ) {
+                    Text(optionText(option), maxLines = 1)
+                }
+            }
+        }
+    }
+}
 
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-        OutlinedTextField(
-            value = optionText(selected),
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(label) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor()
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            options.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(optionText(option)) },
-                    onClick = {
-                        onSelect(option)
-                        expanded = false
-                    }
+@Composable
+private fun ModelCard(
+    model: LLMModelType,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val spec = model.spec
+    Card(onClick = onClick, modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Reserved slot for the model's icon/logo.
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Memory,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(model.displayName, style = MaterialTheme.typography.titleSmall)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CapabilityIndicator(label = "Reasoning", supported = spec.reasoning)
+                    CapabilityIndicator(label = "Caching", supported = spec.caching)
+                }
+                Text(
+                    "Context: ${formatTokenCount(spec.contextTokens)} tokens",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (isSelected) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = "Selected",
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
         }
@@ -319,21 +420,50 @@ private fun <T> EnumDropdown(
 }
 
 @Composable
-private fun ToggleRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+private fun CapabilityIndicator(label: String, supported: Boolean) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Icon(
+            imageVector = if (supported) Icons.Filled.Check else Icons.Filled.Close,
+            contentDescription = null,
+            tint = if (supported) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+            modifier = Modifier.size(16.dp)
+        )
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (supported) 1f else 0.5f)
+        )
+    }
+}
+
+@Composable
+private fun ToggleRow(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean = true
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, style = MaterialTheme.typography.bodyLarge)
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.38f)
+        )
+        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
     }
 }
 
-private fun chatSettingsViewModelFactory(chatId: UUID): ViewModelProvider.Factory =
+private fun chatSettingsViewModelFactory(chatId: UUID, appContext: Context): ViewModelProvider.Factory =
     object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return ChatSettingsViewModel(chatId = chatId) as T
+            return ChatSettingsViewModel(chatId = chatId, appContext = appContext) as T
         }
     }

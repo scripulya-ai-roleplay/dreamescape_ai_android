@@ -1,6 +1,7 @@
 package com.example.dreamescape_ai
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -87,7 +88,7 @@ class ChatViewModelTest {
             loadMessagesCall = onLoadMessages,
             sendMessageCall = onSendMessage,
             ioDispatcher = testDispatcher,
-            llmModel = LLMModelType.testing_mock,
+            modelFlow = flowOf(LLMModelType.testing_mock),
             waitForReply = { _, _ -> }
         )
     }
