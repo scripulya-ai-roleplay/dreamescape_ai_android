@@ -19,6 +19,9 @@ import java.io.IOException
 import okhttp3.OkHttpClient
 import okhttp3.HttpUrl
 
+import org.openapitools.client.models.HTTPValidationError
+import org.openapitools.client.models.LoginRequest
+import org.openapitools.client.models.Token
 
 import com.squareup.moshi.Json
 
@@ -36,7 +39,7 @@ import org.openapitools.client.infrastructure.ResponseType
 import org.openapitools.client.infrastructure.Success
 import org.openapitools.client.infrastructure.toMultiValue
 
-class HealthApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient = ApiClient.defaultClient) : ApiClient(basePath, client) {
+class AuthApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient = ApiClient.defaultClient) : ApiClient(basePath, client) {
     companion object {
         @JvmStatic
         val defaultBasePath: String by lazy {
@@ -45,9 +48,10 @@ class HealthApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient 
     }
 
     /**
-     * Health
+     * Login
      * 
-     * @return kotlin.collections.Map<kotlin.String, kotlin.Any>
+     * @param loginRequest 
+     * @return Token
      * @throws IllegalStateException If the request is not correctly configured
      * @throws IOException Rethrows the OkHttp execute method exception
      * @throws UnsupportedOperationException If the API returns an informational or redirection response
@@ -56,11 +60,11 @@ class HealthApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient 
      */
     @Suppress("UNCHECKED_CAST")
     @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
-    fun healthHealthGet() : kotlin.collections.Map<kotlin.String, kotlin.Any> {
-        val localVarResponse = healthHealthGetWithHttpInfo()
+    fun loginApiV1AuthLoginPost(loginRequest: LoginRequest) : Token {
+        val localVarResponse = loginApiV1AuthLoginPostWithHttpInfo(loginRequest = loginRequest)
 
         return when (localVarResponse.responseType) {
-            ResponseType.Success -> (localVarResponse as Success<*>).data as kotlin.collections.Map<kotlin.String, kotlin.Any>
+            ResponseType.Success -> (localVarResponse as Success<*>).data as Token
             ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
             ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
             ResponseType.ClientError -> {
@@ -75,36 +79,39 @@ class HealthApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient 
     }
 
     /**
-     * Health
+     * Login
      * 
-     * @return ApiResponse<kotlin.collections.Map<kotlin.String, kotlin.Any>?>
+     * @param loginRequest 
+     * @return ApiResponse<Token?>
      * @throws IllegalStateException If the request is not correctly configured
      * @throws IOException Rethrows the OkHttp execute method exception
      */
     @Suppress("UNCHECKED_CAST")
     @Throws(IllegalStateException::class, IOException::class)
-    fun healthHealthGetWithHttpInfo() : ApiResponse<kotlin.collections.Map<kotlin.String, kotlin.Any>?> {
-        val localVariableConfig = healthHealthGetRequestConfig()
+    fun loginApiV1AuthLoginPostWithHttpInfo(loginRequest: LoginRequest) : ApiResponse<Token?> {
+        val localVariableConfig = loginApiV1AuthLoginPostRequestConfig(loginRequest = loginRequest)
 
-        return request<Unit, kotlin.collections.Map<kotlin.String, kotlin.Any>>(
+        return request<LoginRequest, Token>(
             localVariableConfig
         )
     }
 
     /**
-     * To obtain the request config of the operation healthHealthGet
+     * To obtain the request config of the operation loginApiV1AuthLoginPost
      *
+     * @param loginRequest 
      * @return RequestConfig
      */
-    fun healthHealthGetRequestConfig() : RequestConfig<Unit> {
-        val localVariableBody = null
+    fun loginApiV1AuthLoginPostRequestConfig(loginRequest: LoginRequest) : RequestConfig<LoginRequest> {
+        val localVariableBody = loginRequest
         val localVariableQuery: MultiValueMap = mutableMapOf()
         val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Content-Type"] = "application/json"
         localVariableHeaders["Accept"] = "application/json"
 
         return RequestConfig(
-            method = RequestMethod.GET,
-            path = "/health",
+            method = RequestMethod.POST,
+            path = "/api/v1/auth/login",
             query = localVariableQuery,
             headers = localVariableHeaders,
             requiresAuthentication = true,

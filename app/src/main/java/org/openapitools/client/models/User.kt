@@ -29,7 +29,6 @@ import com.squareup.moshi.JsonClass
  * @param role 
  * @param id 
  * @param username 
- * @param testUsername 
  * @param googleId 
  * @param crystalBalance 
  * @param characters 
@@ -48,9 +47,6 @@ data class User (
 
     @Json(name = "username")
     val username: kotlin.String? = null,
-
-    @Json(name = "test_username")
-    val testUsername: kotlin.String? = null,
 
     @Json(name = "google_id")
     val googleId: kotlin.String? = null,

@@ -22,18 +22,14 @@ import com.squareup.moshi.JsonClass
 /**
  * 
  *
- * @param liked 
- * @param likesCount 
+ * @param initialMessageId 
  */
 
 
-data class LikeState (
+data class BodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost (
 
-    @Json(name = "liked")
-    val liked: kotlin.Boolean,
-
-    @Json(name = "likes_count")
-    val likesCount: kotlin.Int
+    @Json(name = "initial_message_id")
+    val initialMessageId: java.util.UUID
 
 ) {
 

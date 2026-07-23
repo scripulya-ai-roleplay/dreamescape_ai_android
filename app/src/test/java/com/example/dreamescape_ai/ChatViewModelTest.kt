@@ -15,13 +15,18 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.openapitools.client.models.ApiResponseChat
+import org.openapitools.client.models.ApiResponseListInitialMessage
 import org.openapitools.client.models.ApiResponseMessage
 import org.openapitools.client.models.ApiResponsePageMessage
+import org.openapitools.client.models.Chat
 import org.openapitools.client.models.ChatRoles
+import org.openapitools.client.models.InitialMessage
 import org.openapitools.client.models.LLMModelType
 import org.openapitools.client.models.Message
+import org.openapitools.client.models.ModelApiResponse
 import org.openapitools.client.models.PageMessage
-import org.openapitools.client.models.UserMessageDTO
+import org.openapitools.client.models.SendMessageRequest
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -81,7 +86,7 @@ class ChatViewModelTest {
 
     private fun createViewModel(
         onLoadMessages: (UUID) -> ApiResponsePageMessage = { createPage() },
-        onSendMessage: (UserMessageDTO) -> ApiResponseMessage = { messageResponse(it.message) }
+        onSendMessage: (SendMessageRequest) -> ApiResponseMessage = { messageResponse(it.message) }
     ): ChatViewModel {
         return ChatViewModel(
             chatId = testChatId,
@@ -237,7 +242,7 @@ class ChatViewModelTest {
 
     @Test
     fun `sendMessage posts user message dto with trimmed text and reloads`() = runTest {
-        var captured: UserMessageDTO? = null
+        var captured: SendMessageRequest? = null
         var messagesToReturn = emptyList<Message>()
         val viewModel = createViewModel(
             onLoadMessages = { createPage(messagesToReturn) },
@@ -257,7 +262,6 @@ class ChatViewModelTest {
 
         assertEquals(testChatId, captured?.chatId)
         assertEquals("Hello", captured?.message)
-        assertEquals(ChatRoles.user, captured?.role)
         assertEquals(LLMModelType.testing_mock, captured?.llmModel)
         assertEquals("", viewModel.uiState.value.input)
         assertEquals(2, viewModel.uiState.value.messages.size)
@@ -275,5 +279,66 @@ class ChatViewModelTest {
 
         assertEquals("Send failed", viewModel.uiState.value.errorMessage)
         assertFalse(viewModel.uiState.value.isSending)
+    }
+
+    @Test
+    fun `sendMessage seeds the displayed greeting before sending and clears the gate`() = runTest {
+        val greetingOne = UUID.fromString("00000000-0000-0000-0000-000000000b01")
+        val greetingTwo = UUID.fromString("00000000-0000-0000-0000-000000000b02")
+        val greetings = listOf(
+            InitialMessage(text = "Greeting one", id = greetingOne),
+            InitialMessage(text = "Greeting two", id = greetingTwo)
+        )
+
+        var seededId: UUID? = null
+        var sentDto: SendMessageRequest? = null
+        val viewModel = ChatViewModel(
+            chatId = testChatId,
+            loadMessagesCall = { createPage(emptyList()) },
+            sendMessageCall = { dto ->
+                sentDto = dto
+                messageResponse(dto.message)
+            },
+            // A chat whose greeting is not yet chosen → needsInitialMessage.
+            getChatCall = {
+                ApiResponseChat(
+                    result = Chat(
+                        title = "Chat",
+                        userId = UUID.fromString("00000000-0000-0000-0000-0000000000cc"),
+                        sceneId = UUID.fromString("00000000-0000-0000-0000-0000000000dd"),
+                        id = testChatId,
+                        initialMessageId = null
+                    )
+                )
+            },
+            // Avoid hitting the network from a unit test; loadChat tolerates the failure.
+            sceneImageCall = { throw RuntimeException("no network in tests") },
+            getSceneInitialMessagesCall = { ApiResponseListInitialMessage(result = greetings) },
+            chooseInitialMessageCall = { _, id ->
+                seededId = id
+                ModelApiResponse(result = null)
+            },
+            ioDispatcher = testDispatcher,
+            modelFlow = flowOf(LLMModelType.testing_mock),
+            waitForReply = { _, _ -> }
+        )
+
+        viewModel.loadChat()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.needsInitialMessage)
+        assertEquals(0, viewModel.uiState.value.currentInitialMessageIndex)
+
+        // Browse to the second greeting — the one that should be committed.
+        viewModel.selectNextInitialMessage()
+        assertEquals(1, viewModel.uiState.value.currentInitialMessageIndex)
+
+        viewModel.onInputChanged("Hello")
+        viewModel.sendMessage()
+        advanceUntilIdle()
+
+        assertEquals(greetingTwo, seededId) // committed the displayed greeting
+        assertEquals("Hello", sentDto?.message) // then sent the reply
+        assertFalse(viewModel.uiState.value.needsInitialMessage) // gate cleared after reload
     }
 }

@@ -22,18 +22,14 @@ import com.squareup.moshi.JsonClass
 /**
  * 
  *
- * @param liked 
- * @param likesCount 
+ * @param updatedText 
  */
 
 
-data class LikeState (
+data class BodyUpdateSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdPut (
 
-    @Json(name = "liked")
-    val liked: kotlin.Boolean,
-
-    @Json(name = "likes_count")
-    val likesCount: kotlin.Int
+    @Json(name = "updated_text")
+    val updatedText: kotlin.String
 
 ) {
 

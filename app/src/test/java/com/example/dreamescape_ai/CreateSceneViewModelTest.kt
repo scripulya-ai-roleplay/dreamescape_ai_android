@@ -53,7 +53,7 @@ class CreateSceneViewModelTest {
         assertEquals("", state.title)
         assertEquals("", state.description)
         assertEquals("", state.backgroundPrompt)
-        assertEquals("", state.initialMessageText)
+        assertEquals(listOf(""), state.initialMessages)
         assertFalse(state.isLoading)
         assertNull(state.errorMessage)
         assertFalse(state.isSuccess)
@@ -87,19 +87,19 @@ class CreateSceneViewModelTest {
     }
 
     @Test
-    fun `onInitialMessageTextChanged updates initialMessageText`() {
+    fun `onInitialMessageChanged updates initialMessages`() {
         val viewModel = createViewModel()
 
-        viewModel.onInitialMessageTextChanged("Welcome to the forest")
+        viewModel.onInitialMessageChanged(0,"Welcome to the forest")
 
-        assertEquals("Welcome to the forest", viewModel.uiState.value.initialMessageText)
+        assertEquals(listOf("Welcome to the forest"), viewModel.uiState.value.initialMessages)
     }
 
     @Test
     fun `validate returns error when title is blank`() {
         val viewModel = createViewModel()
         viewModel.onBackgroundPromptChanged("Some prompt")
-        viewModel.onInitialMessageTextChanged("Some message")
+        viewModel.onInitialMessageChanged(0,"Some message")
 
         val error = viewModel.validate()
 
@@ -110,7 +110,7 @@ class CreateSceneViewModelTest {
     fun `validate returns error when backgroundPrompt is blank`() {
         val viewModel = createViewModel()
         viewModel.onTitleChanged("Dark Forest")
-        viewModel.onInitialMessageTextChanged("Some message")
+        viewModel.onInitialMessageChanged(0,"Some message")
 
         val error = viewModel.validate()
 
@@ -118,14 +118,14 @@ class CreateSceneViewModelTest {
     }
 
     @Test
-    fun `validate returns error when initialMessageText is blank`() {
+    fun `validate returns error when no initial message is set`() {
         val viewModel = createViewModel()
         viewModel.onTitleChanged("Dark Forest")
         viewModel.onBackgroundPromptChanged("Some prompt")
 
         val error = viewModel.validate()
 
-        assertEquals("Initial message text is required", error)
+        assertEquals("At least one initial message is required", error)
     }
 
     @Test
@@ -133,7 +133,7 @@ class CreateSceneViewModelTest {
         val viewModel = createViewModel()
         viewModel.onTitleChanged("Dark Forest")
         viewModel.onBackgroundPromptChanged("You are in a dark forest")
-        viewModel.onInitialMessageTextChanged("Welcome to the forest")
+        viewModel.onInitialMessageChanged(0,"Welcome to the forest")
 
         val error = viewModel.validate()
 
@@ -144,7 +144,7 @@ class CreateSceneViewModelTest {
     fun `createScene sets error when title is blank`() {
         val viewModel = createViewModel()
         viewModel.onBackgroundPromptChanged("Some prompt")
-        viewModel.onInitialMessageTextChanged("Some message")
+        viewModel.onInitialMessageChanged(0,"Some message")
 
         viewModel.createScene()
 
@@ -156,7 +156,7 @@ class CreateSceneViewModelTest {
     fun `createScene sets error when backgroundPrompt is blank`() {
         val viewModel = createViewModel()
         viewModel.onTitleChanged("Dark Forest")
-        viewModel.onInitialMessageTextChanged("Some message")
+        viewModel.onInitialMessageChanged(0,"Some message")
 
         viewModel.createScene()
 
@@ -165,14 +165,14 @@ class CreateSceneViewModelTest {
     }
 
     @Test
-    fun `createScene sets error when initialMessageText is blank`() {
+    fun `createScene sets error when no initial message is set`() {
         val viewModel = createViewModel()
         viewModel.onTitleChanged("Dark Forest")
         viewModel.onBackgroundPromptChanged("Some prompt")
 
         viewModel.createScene()
 
-        assertEquals("Initial message text is required", viewModel.uiState.value.errorMessage)
+        assertEquals("At least one initial message is required", viewModel.uiState.value.errorMessage)
         assertFalse(viewModel.uiState.value.isLoading)
     }
 
@@ -207,11 +207,11 @@ class CreateSceneViewModelTest {
     }
 
     @Test
-    fun `onInitialMessageTextChanged clears error message`() {
+    fun `onInitialMessageChanged clears error message`() {
         val viewModel = createViewModel()
         viewModel.createScene()
 
-        viewModel.onInitialMessageTextChanged("Some message")
+        viewModel.onInitialMessageChanged(0,"Some message")
 
         assertNull(viewModel.uiState.value.errorMessage)
     }
@@ -221,7 +221,7 @@ class CreateSceneViewModelTest {
         val viewModel = createViewModel { ModelApiResponse(result = "created") }
         viewModel.onTitleChanged("Dark Forest")
         viewModel.onBackgroundPromptChanged("You are in a dark forest")
-        viewModel.onInitialMessageTextChanged("Welcome to the forest")
+        viewModel.onInitialMessageChanged(0,"Welcome to the forest")
 
         viewModel.createScene()
         advanceUntilIdle()
@@ -236,7 +236,7 @@ class CreateSceneViewModelTest {
         val viewModel = createViewModel { throw RuntimeException("Network error") }
         viewModel.onTitleChanged("Dark Forest")
         viewModel.onBackgroundPromptChanged("You are in a dark forest")
-        viewModel.onInitialMessageTextChanged("Welcome to the forest")
+        viewModel.onInitialMessageChanged(0,"Welcome to the forest")
 
         viewModel.createScene()
         advanceUntilIdle()
@@ -256,7 +256,7 @@ class CreateSceneViewModelTest {
         viewModel.onTitleChanged("  Dark Forest  ")
         viewModel.onDescriptionChanged("  A mysterious forest  ")
         viewModel.onBackgroundPromptChanged("  You are in a dark forest  ")
-        viewModel.onInitialMessageTextChanged("  Welcome to the forest  ")
+        viewModel.onInitialMessageChanged(0,"  Welcome to the forest  ")
 
         viewModel.createScene()
         advanceUntilIdle()
@@ -264,7 +264,10 @@ class CreateSceneViewModelTest {
         assertEquals("Dark Forest", capturedScene?.title)
         assertEquals("A mysterious forest", capturedScene?.description)
         assertEquals("You are in a dark forest", capturedScene?.backgroundPrompt)
-        assertEquals("Welcome to the forest", capturedScene?.initialMessageText)
+        assertEquals(
+            listOf("Welcome to the forest"),
+            capturedScene?.initialMessages?.map { it.text }
+        )
         assertEquals(testOwnerId, capturedScene?.ownerId)
     }
 
@@ -282,7 +285,7 @@ class CreateSceneViewModelTest {
         )
         viewModel.onTitleChanged("Dark Forest")
         viewModel.onBackgroundPromptChanged("You are in a dark forest")
-        viewModel.onInitialMessageTextChanged("Welcome to the forest")
+        viewModel.onInitialMessageChanged(0,"Welcome to the forest")
 
         viewModel.createScene()
         advanceUntilIdle()
@@ -299,7 +302,7 @@ class CreateSceneViewModelTest {
         }
         viewModel.onTitleChanged("Dark Forest")
         viewModel.onBackgroundPromptChanged("You are in a dark forest")
-        viewModel.onInitialMessageTextChanged("Welcome to the forest")
+        viewModel.onInitialMessageChanged(0,"Welcome to the forest")
 
         viewModel.createScene()
         advanceUntilIdle()

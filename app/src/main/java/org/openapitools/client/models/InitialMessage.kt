@@ -22,34 +22,30 @@ import com.squareup.moshi.JsonClass
 /**
  * 
  *
- * @param title 
- * @param userId 
- * @param sceneId 
+ * @param text 
  * @param id 
- * @param userCharacterId 
- * @param initialMessageId 
+ * @param sceneId 
+ * @param dateCreated 
+ * @param dateEdited 
  */
 
 
-data class Chat (
+data class InitialMessage (
 
-    @Json(name = "title")
-    val title: kotlin.String,
-
-    @Json(name = "user_id")
-    val userId: java.util.UUID,
-
-    @Json(name = "scene_id")
-    val sceneId: java.util.UUID,
+    @Json(name = "text")
+    val text: kotlin.String,
 
     @Json(name = "id")
     val id: java.util.UUID? = null,
 
-    @Json(name = "user_character_id")
-    val userCharacterId: java.util.UUID? = null,
+    @Json(name = "scene_id")
+    val sceneId: java.util.UUID? = null,
 
-    @Json(name = "initial_message_id")
-    val initialMessageId: java.util.UUID? = null
+    @Json(name = "date_created")
+    val dateCreated: java.time.OffsetDateTime? = null,
+
+    @Json(name = "date_edited")
+    val dateEdited: java.time.OffsetDateTime? = null
 
 ) {
 

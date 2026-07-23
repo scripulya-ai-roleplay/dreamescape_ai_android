@@ -21,6 +21,7 @@ import okhttp3.HttpUrl
 
 import org.openapitools.client.models.ApiResponseChat
 import org.openapitools.client.models.ApiResponsePageChat
+import org.openapitools.client.models.BodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost
 import org.openapitools.client.models.BodySetChatPersonaApiV1ChatsChatIdPersonaPost
 import org.openapitools.client.models.BodyUpdateChatApiV1ChatsUpdateChatIdPost
 import org.openapitools.client.models.Chat
@@ -49,6 +50,81 @@ class ChatsApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient =
         val defaultBasePath: String by lazy {
             System.getProperties().getProperty(ApiClient.baseUrlKey, "http://localhost")
         }
+    }
+
+    /**
+     * Choose Chat Initial Message
+     * 
+     * @param chatId 
+     * @param bodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost 
+     * @return ModelApiResponse
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
+    fun chooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost(chatId: java.util.UUID, bodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost: BodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost) : ModelApiResponse {
+        val localVarResponse = chooseChatInitialMessageApiV1ChatsChatIdInitialMessagePostWithHttpInfo(chatId = chatId, bodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost = bodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost)
+
+        return when (localVarResponse.responseType) {
+            ResponseType.Success -> (localVarResponse as Success<*>).data as ModelApiResponse
+            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
+            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
+            ResponseType.ClientError -> {
+                val localVarError = localVarResponse as ClientError<*>
+                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
+            }
+            ResponseType.ServerError -> {
+                val localVarError = localVarResponse as ServerError<*>
+                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()} ${localVarError.body}", localVarError.statusCode, localVarResponse)
+            }
+        }
+    }
+
+    /**
+     * Choose Chat Initial Message
+     * 
+     * @param chatId 
+     * @param bodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost 
+     * @return ApiResponse<ModelApiResponse?>
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class)
+    fun chooseChatInitialMessageApiV1ChatsChatIdInitialMessagePostWithHttpInfo(chatId: java.util.UUID, bodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost: BodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost) : ApiResponse<ModelApiResponse?> {
+        val localVariableConfig = chooseChatInitialMessageApiV1ChatsChatIdInitialMessagePostRequestConfig(chatId = chatId, bodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost = bodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost)
+
+        return request<BodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost, ModelApiResponse>(
+            localVariableConfig
+        )
+    }
+
+    /**
+     * To obtain the request config of the operation chooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost
+     *
+     * @param chatId 
+     * @param bodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost 
+     * @return RequestConfig
+     */
+    fun chooseChatInitialMessageApiV1ChatsChatIdInitialMessagePostRequestConfig(chatId: java.util.UUID, bodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost: BodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost) : RequestConfig<BodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost> {
+        val localVariableBody = bodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost
+        val localVariableQuery: MultiValueMap = mutableMapOf()
+        val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Content-Type"] = "application/json"
+        localVariableHeaders["Accept"] = "application/json"
+
+        return RequestConfig(
+            method = RequestMethod.POST,
+            path = "/api/v1/chats/{chat_id}/initial-message".replace("{"+"chat_id"+"}", encodeURIComponent(chatId.toString())),
+            query = localVariableQuery,
+            headers = localVariableHeaders,
+            requiresAuthentication = true,
+            body = localVariableBody
+        )
     }
 
     /**
@@ -448,7 +524,7 @@ class ChatsApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient =
 
     /**
      * Stream Chat Events
-     * Server-Sent Events stream of model-message lifecycle events for a chat.  The client opens this after POSTing a message; the completed/failed reply is pushed here when scripulya_agent answers (no polling). On connect, the latest model message is emitted as a &#x60;state&#x60; reconciliation frame so a client that connected after the reply landed (or on reconnect) can dedupe by message id.  Ownership of the chat is verified and the latest message read inside the service; that DB work happens in a short-lived session that is closed before this response starts streaming, so the SSE connection does not pin a DB connection.
+     * 
      * @param chatId 
      * @return kotlin.Any
      * @throws IllegalStateException If the request is not correctly configured
@@ -479,7 +555,7 @@ class ChatsApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient =
 
     /**
      * Stream Chat Events
-     * Server-Sent Events stream of model-message lifecycle events for a chat.  The client opens this after POSTing a message; the completed/failed reply is pushed here when scripulya_agent answers (no polling). On connect, the latest model message is emitted as a &#x60;state&#x60; reconciliation frame so a client that connected after the reply landed (or on reconnect) can dedupe by message id.  Ownership of the chat is verified and the latest message read inside the service; that DB work happens in a short-lived session that is closed before this response starts streaming, so the SSE connection does not pin a DB connection.
+     * 
      * @param chatId 
      * @return ApiResponse<kotlin.Any?>
      * @throws IllegalStateException If the request is not correctly configured

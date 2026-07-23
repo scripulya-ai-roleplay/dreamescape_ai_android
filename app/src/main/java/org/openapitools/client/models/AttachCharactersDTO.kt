@@ -20,7 +20,7 @@ import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
 /**
- * Character ids to add to a scene's roster after it exists (e.g. mid-chat).
+ * 
  *
  * @param characterIds 
  */

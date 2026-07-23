@@ -22,18 +22,18 @@ import com.squareup.moshi.JsonClass
 /**
  * 
  *
- * @param liked 
- * @param likesCount 
+ * @param accessToken 
+ * @param tokenType 
  */
 
 
-data class LikeState (
+data class Token (
 
-    @Json(name = "liked")
-    val liked: kotlin.Boolean,
+    @Json(name = "access_token")
+    val accessToken: kotlin.String,
 
-    @Json(name = "likes_count")
-    val likesCount: kotlin.Int
+    @Json(name = "token_type")
+    val tokenType: kotlin.String? = "bearer"
 
 ) {
 

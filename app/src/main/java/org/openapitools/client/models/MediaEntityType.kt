@@ -20,7 +20,7 @@ import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
 /**
- * The kind of entity a media asset (image) is attached to.
+ * 
  *
  * Values: character,scene,user
  */

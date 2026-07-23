@@ -16,7 +16,7 @@ private val Context.chatModelDataStore by preferencesDataStore(name = "chat_mode
  * Persists the user's chosen [LLMModelType] per chat locally.
  *
  * The backend's `ChatSettings` has no model field — the model is carried
- * per-message in `UserMessageDTO.llmModel`. So the choice is stored here and
+ * per-message in `SendMessageRequest.llmModel`. So the choice is stored here and
  * read both by the chat-settings screen (to show the picker) and by the chat
  * (to send messages).
  */

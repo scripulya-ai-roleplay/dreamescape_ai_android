@@ -15,6 +15,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.openapitools.client.models.ApiResponsePageScene
+import org.openapitools.client.models.InitialMessage
 import org.openapitools.client.models.PageScene
 import org.openapitools.client.models.Scene
 import java.util.UUID
@@ -31,7 +32,7 @@ class SceneListViewModelTest {
             ownerId = testOwnerId,
             title = "Dark Forest",
             backgroundPrompt = "A dark forest",
-            initialMessageText = "Welcome",
+            initialMessages = listOf(InitialMessage(text = "Welcome")),
             id = UUID.fromString("00000000-0000-0000-0000-000000000010"),
             description = "A mysterious forest"
         ),
@@ -39,7 +40,7 @@ class SceneListViewModelTest {
             ownerId = testOwnerId,
             title = "Sunny Beach",
             backgroundPrompt = "A sunny beach",
-            initialMessageText = "Hello",
+            initialMessages = listOf(InitialMessage(text = "Hello")),
             id = UUID.fromString("00000000-0000-0000-0000-000000000011"),
             description = null
         )

@@ -20,7 +20,7 @@ import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
 /**
- * Field to order scene search results by.
+ * 
  *
  * Values: title,chats_count,messages_count
  */

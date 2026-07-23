@@ -15,7 +15,6 @@
 
 package org.openapitools.client.models
 
-import org.openapitools.client.models.ChatRoles
 import org.openapitools.client.models.LLMModelType
 
 import com.squareup.moshi.Json
@@ -26,12 +25,11 @@ import com.squareup.moshi.JsonClass
  *
  * @param chatId 
  * @param message 
- * @param role 
  * @param llmModel 
  */
 
 
-data class UserMessageDTO (
+data class SendMessageRequest (
 
     @Json(name = "chat_id")
     val chatId: java.util.UUID,
@@ -39,13 +37,10 @@ data class UserMessageDTO (
     @Json(name = "message")
     val message: kotlin.String,
 
-    @Json(name = "role")
-    val role: ChatRoles,
-
     @Json(name = "llm_model")
     val llmModel: LLMModelType? = null
 
-) {
+) : kotlin.collections.HashMap<String, kotlin.Any>() {
 
 
 }

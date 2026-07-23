@@ -15,6 +15,7 @@
 
 package org.openapitools.client.models
 
+import org.openapitools.client.models.InitialMessage
 
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
@@ -22,18 +23,18 @@ import com.squareup.moshi.JsonClass
 /**
  * 
  *
- * @param liked 
- * @param likesCount 
+ * @param result 
+ * @param correlationId 
  */
 
 
-data class LikeState (
+data class ApiResponseListInitialMessage (
 
-    @Json(name = "liked")
-    val liked: kotlin.Boolean,
+    @Json(name = "result")
+    val result: kotlin.collections.List<InitialMessage>,
 
-    @Json(name = "likes_count")
-    val likesCount: kotlin.Int
+    @Json(name = "correlation_id")
+    val correlationId: kotlin.String? = null
 
 ) {
 

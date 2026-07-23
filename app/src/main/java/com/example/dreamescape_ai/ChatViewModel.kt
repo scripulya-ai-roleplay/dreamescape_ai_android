@@ -20,9 +20,13 @@ import org.json.JSONObject
 import org.openapitools.client.apis.ChatsApi
 import org.openapitools.client.apis.MediaApi
 import org.openapitools.client.apis.MessagesApi
+import org.openapitools.client.apis.ScenesApi
 import org.openapitools.client.infrastructure.ApiClient
 import org.openapitools.client.models.ApiResponseChat
+import org.openapitools.client.models.ApiResponseListInitialMessage
 import org.openapitools.client.models.ApiResponseMessage
+import org.openapitools.client.models.BodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost
+import org.openapitools.client.models.InitialMessage
 import org.openapitools.client.models.ApiResponsePageMediaAssetDTO
 import org.openapitools.client.models.ApiResponsePageMessage
 import org.openapitools.client.models.ChatRoles
@@ -30,7 +34,8 @@ import org.openapitools.client.models.LLMModelType
 import org.openapitools.client.models.MediaEntityType
 import org.openapitools.client.models.Message
 import org.openapitools.client.models.MessageStatus
-import org.openapitools.client.models.UserMessageDTO
+import org.openapitools.client.models.ModelApiResponse
+import org.openapitools.client.models.SendMessageRequest
 import java.time.OffsetDateTime
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -44,7 +49,15 @@ data class ChatUiState(
     val thinkingSeconds: Int = 0,
     val errorMessage: String? = null,
     val sceneImageUrl: String? = null,
-    val sceneImageResolved: Boolean = false
+    val sceneImageResolved: Boolean = false,
+    // The chat's chosen opening greeting, if any. null until the user picks one.
+    val initialMessageId: UUID? = null,
+    // True while the chat has no greeting — the scene's greetings are shown as a
+    // browsable carousel and the first send commits the displayed one.
+    val needsInitialMessage: Boolean = false,
+    val sceneInitialMessages: List<InitialMessage> = emptyList(),
+    val currentInitialMessageIndex: Int = 0,
+    val isChoosingInitialMessage: Boolean = false
 )
 
 class ChatViewModel(
@@ -65,9 +78,24 @@ class ChatViewModel(
             limit = 1
         )
     },
-    private val sendMessageCall: (UserMessageDTO) -> ApiResponseMessage = { dto ->
+    private val sendMessageCall: (SendMessageRequest) -> ApiResponseMessage = { dto ->
         MessagesApi().createMessageApiV1MessagesPost(dto)
     },
+    // The scene's opening greetings, shown as a carousel until one is chosen.
+    private val getSceneInitialMessagesCall: (UUID) -> ApiResponseListInitialMessage = { sceneId ->
+        ScenesApi().getSceneInitialMessagesApiV1ScenesSceneIdInitialMessagesGet(sceneId = sceneId)
+    },
+    // Seeds the chosen greeting as the chat's first model message (once per chat).
+    private val chooseInitialMessageCall: (chatId: UUID, initialMessageId: UUID) -> ModelApiResponse =
+        { chatId, initialMessageId ->
+            ChatsApi().chooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost(
+                chatId = chatId,
+                bodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost =
+                BodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost(
+                    initialMessageId = initialMessageId
+                )
+            )
+        },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     /**
      * Source of the LLM model used for outgoing messages. Defaults to a glm-5.2
@@ -116,25 +144,63 @@ class ChatViewModel(
         sortedWith(compareBy(nullsLast<OffsetDateTime>()) { it.dateCreated })
 
     /**
-     * Resolves the scene's preview image so the chat can render it as its
-     * background. Reads the chat to find its scene_id, then looks up the scene's
-     * first media asset. Failures leave the background empty rather than erroring
-     * the whole screen; resolved once per instance.
+     * Loads the chat's context once: resolves the scene's preview image for the
+     * background, and determines whether an opening greeting still needs to be
+     * chosen. A chat with no `initial_message_id` can't send — the backend raises
+     * InitialMessageRequiredException — so the scene's greetings are fetched here
+     * to drive the greeting carousel. Failures leave the background empty and the
+     * gate open rather than blocking the screen.
      */
-    fun loadSceneImage() {
+    fun loadChat() {
         if (_uiState.value.sceneImageResolved) return
         viewModelScope.launch(ioDispatcher) {
-            val url = try {
-                val sceneId = getChatCall(chatId).result.sceneId
-                sceneImageCall(sceneId).result.items.firstOrNull()?.url
+            val chat = try {
+                getChatCall(chatId).result
+            } catch (_: Exception) {
+                _uiState.value = _uiState.value.copy(sceneImageResolved = true)
+                return@launch
+            }
+            val imageUrl = try {
+                sceneImageCall(chat.sceneId).result.items.firstOrNull()?.url
             } catch (_: Exception) {
                 null
             }
+            val needsGreeting = chat.initialMessageId == null
+            val greetings = if (needsGreeting) {
+                try {
+                    getSceneInitialMessagesCall(chat.sceneId).result
+                } catch (_: Exception) {
+                    emptyList()
+                }
+            } else {
+                emptyList()
+            }
             _uiState.value = _uiState.value.copy(
-                sceneImageUrl = url,
-                sceneImageResolved = true
+                sceneImageUrl = imageUrl,
+                sceneImageResolved = true,
+                initialMessageId = chat.initialMessageId,
+                needsInitialMessage = needsGreeting,
+                sceneInitialMessages = greetings,
+                currentInitialMessageIndex = 0
             )
         }
+    }
+
+    /** Cycles the greeting carousel to the previous opening message (clamped). */
+    fun selectPreviousInitialMessage() {
+        if (!_uiState.value.needsInitialMessage) return
+        _uiState.value = _uiState.value.copy(
+            currentInitialMessageIndex = (_uiState.value.currentInitialMessageIndex - 1).coerceAtLeast(0)
+        )
+    }
+
+    /** Cycles the greeting carousel to the next opening message (clamped). */
+    fun selectNextInitialMessage() {
+        val count = _uiState.value.sceneInitialMessages.size
+        if (!_uiState.value.needsInitialMessage || count == 0) return
+        _uiState.value = _uiState.value.copy(
+            currentInitialMessageIndex = (_uiState.value.currentInitialMessageIndex + 1).coerceAtMost(count - 1)
+        )
     }
 
     fun sendMessage() {
@@ -147,17 +213,43 @@ class ChatViewModel(
 
         viewModelScope.launch(ioDispatcher) {
             try {
-                val dto = UserMessageDTO(
+                // Seed the opening greeting first if none is chosen yet — the
+                // backend rejects messages until one is picked (choosing is
+                // once-per-chat). The greeting currently shown in the carousel is
+                // committed, then this reply follows it.
+                if (_uiState.value.needsInitialMessage) {
+                    val greetingId = _uiState.value.sceneInitialMessages
+                        .getOrNull(_uiState.value.currentInitialMessageIndex)?.id
+                    if (greetingId == null) {
+                        _uiState.value = _uiState.value.copy(
+                            isSending = false,
+                            errorMessage = "No opening message available for this scene"
+                        )
+                        return@launch
+                    }
+                    _uiState.value = _uiState.value.copy(isChoosingInitialMessage = true)
+                    chooseInitialMessageCall(chatId, greetingId)
+                    // needsInitialMessage stays true until the seeded greeting is
+                    // reloaded below, so the carousel doesn't drop out (or duplicate
+                    // the greeting) during the in-flight send.
+                    _uiState.value = _uiState.value.copy(isChoosingInitialMessage = false)
+                }
+
+                val dto = SendMessageRequest(
                     chatId = chatId,
                     message = text,
-                    role = ChatRoles.user,
                     llmModel = modelFlow.first()
                 )
                 sendMessageCall(dto)
                 // Reload so the user message (and any pending model message) is shown.
                 val response = loadMessagesCall(chatId)
                 val messages = response.result.items.sortedChronologically()
-                _uiState.value = _uiState.value.copy(messages = messages, isSending = false)
+                // The seeded greeting now appears in the list; clear the carousel.
+                _uiState.value = _uiState.value.copy(
+                    messages = messages,
+                    isSending = false,
+                    needsInitialMessage = false
+                )
 
                 // Wait for the model's reply: shows a "thinking" timer (so the user can
                 // see the app is generating, not silently stuck) and reloads when the
@@ -171,6 +263,7 @@ class ChatViewModel(
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isSending = false,
+                    isChoosingInitialMessage = false,
                     errorMessage = e.message ?: "Failed to send message"
                 )
             }

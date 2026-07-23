@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.openapitools.client.apis.ScenesApi
+import org.openapitools.client.models.InitialMessage
 import org.openapitools.client.models.ModelApiResponse
 import org.openapitools.client.models.Scene
 import java.io.IOException
@@ -19,7 +20,8 @@ data class CreateSceneUiState(
     val title: String = "",
     val description: String = "",
     val backgroundPrompt: String = "",
-    val initialMessageText: String = "",
+    // A scene offers one or more opening greetings; the form starts with one row.
+    val initialMessages: List<String> = listOf(""),
     val imageUris: List<String> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
@@ -61,8 +63,29 @@ class CreateSceneViewModel(
         _uiState.value = _uiState.value.copy(backgroundPrompt = backgroundPrompt, errorMessage = null)
     }
 
-    fun onInitialMessageTextChanged(initialMessageText: String) {
-        _uiState.value = _uiState.value.copy(initialMessageText = initialMessageText, errorMessage = null)
+    fun onInitialMessageChanged(index: Int, text: String) {
+        val current = _uiState.value.initialMessages
+        if (index !in current.indices) return
+        _uiState.value = _uiState.value.copy(
+            initialMessages = current.toMutableList().apply { set(index, text) },
+            errorMessage = null
+        )
+    }
+
+    fun addInitialMessage() {
+        _uiState.value = _uiState.value.copy(
+            initialMessages = _uiState.value.initialMessages + "",
+            errorMessage = null
+        )
+    }
+
+    fun removeInitialMessage(index: Int) {
+        val current = _uiState.value.initialMessages
+        if (current.size <= 1 || index !in current.indices) return
+        _uiState.value = _uiState.value.copy(
+            initialMessages = current.toMutableList().apply { removeAt(index) },
+            errorMessage = null
+        )
     }
 
     fun onImagesAdded(uris: List<String>) {
@@ -85,7 +108,7 @@ class CreateSceneViewModel(
         return when {
             state.title.isBlank() -> "Title is required"
             state.backgroundPrompt.isBlank() -> "Background prompt is required"
-            state.initialMessageText.isBlank() -> "Initial message text is required"
+            state.initialMessages.none { it.isNotBlank() } -> "At least one initial message is required"
             else -> null
         }
     }
@@ -105,7 +128,10 @@ class CreateSceneViewModel(
             title = state.title.trim(),
             description = state.description.trim().ifEmpty { null },
             backgroundPrompt = state.backgroundPrompt.trim(),
-            initialMessageText = state.initialMessageText.trim()
+            // Blank rows are dropped; the backend requires at least one greeting.
+            initialMessages = state.initialMessages
+                .mapNotNull { it.trim().takeIf(String::isNotBlank) }
+                .map { InitialMessage(text = it) }
         )
 
         _uiState.value = state.copy(isLoading = true, errorMessage = null)

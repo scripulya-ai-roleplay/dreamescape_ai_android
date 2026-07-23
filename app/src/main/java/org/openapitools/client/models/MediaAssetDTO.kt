@@ -21,7 +21,7 @@ import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
 /**
- * Client-facing representation of a media asset.  ``url`` is computed by the service: a stable public URL for public assets, a short-lived presigned URL for private assets, or the legacy ``file_url`` as-is for assets that still point at an external location. The object key / bucket are intentionally NOT exposed.
+ * 
  *
  * @param id 
  * @param url 

@@ -20,7 +20,7 @@ import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
 /**
- * Whether the requesting user has bookmarked an entity.
+ * 
  *
  * @param bookmarked 
  */

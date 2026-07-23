@@ -22,9 +22,11 @@ import okhttp3.HttpUrl
 import org.openapitools.client.models.ApiResponseBookmarkState
 import org.openapitools.client.models.ApiResponseLikeState
 import org.openapitools.client.models.ApiResponseListCharacter
+import org.openapitools.client.models.ApiResponseListInitialMessage
 import org.openapitools.client.models.ApiResponsePageScene
 import org.openapitools.client.models.ApiResponseScene
 import org.openapitools.client.models.AttachCharactersDTO
+import org.openapitools.client.models.BodyUpdateSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdPut
 import org.openapitools.client.models.HTTPValidationError
 import org.openapitools.client.models.ModelApiResponse
 import org.openapitools.client.models.Scene
@@ -345,6 +347,80 @@ class ScenesApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient 
     }
 
     /**
+     * Delete Scene Initial Message
+     * 
+     * @param sceneId 
+     * @param initialMessageId 
+     * @return ModelApiResponse
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
+    fun deleteSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdDelete(sceneId: java.util.UUID, initialMessageId: java.util.UUID) : ModelApiResponse {
+        val localVarResponse = deleteSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdDeleteWithHttpInfo(sceneId = sceneId, initialMessageId = initialMessageId)
+
+        return when (localVarResponse.responseType) {
+            ResponseType.Success -> (localVarResponse as Success<*>).data as ModelApiResponse
+            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
+            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
+            ResponseType.ClientError -> {
+                val localVarError = localVarResponse as ClientError<*>
+                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
+            }
+            ResponseType.ServerError -> {
+                val localVarError = localVarResponse as ServerError<*>
+                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()} ${localVarError.body}", localVarError.statusCode, localVarResponse)
+            }
+        }
+    }
+
+    /**
+     * Delete Scene Initial Message
+     * 
+     * @param sceneId 
+     * @param initialMessageId 
+     * @return ApiResponse<ModelApiResponse?>
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class)
+    fun deleteSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdDeleteWithHttpInfo(sceneId: java.util.UUID, initialMessageId: java.util.UUID) : ApiResponse<ModelApiResponse?> {
+        val localVariableConfig = deleteSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdDeleteRequestConfig(sceneId = sceneId, initialMessageId = initialMessageId)
+
+        return request<Unit, ModelApiResponse>(
+            localVariableConfig
+        )
+    }
+
+    /**
+     * To obtain the request config of the operation deleteSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdDelete
+     *
+     * @param sceneId 
+     * @param initialMessageId 
+     * @return RequestConfig
+     */
+    fun deleteSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdDeleteRequestConfig(sceneId: java.util.UUID, initialMessageId: java.util.UUID) : RequestConfig<Unit> {
+        val localVariableBody = null
+        val localVariableQuery: MultiValueMap = mutableMapOf()
+        val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Accept"] = "application/json"
+
+        return RequestConfig(
+            method = RequestMethod.DELETE,
+            path = "/api/v1/scenes/{scene_id}/initial-messages/{initial_message_id}".replace("{"+"scene_id"+"}", encodeURIComponent(sceneId.toString())).replace("{"+"initial_message_id"+"}", encodeURIComponent(initialMessageId.toString())),
+            query = localVariableQuery,
+            headers = localVariableHeaders,
+            requiresAuthentication = true,
+            body = localVariableBody
+        )
+    }
+
+    /**
      * Get Scene Bookmark State
      * 
      * @param sceneId 
@@ -550,6 +626,77 @@ class ScenesApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient 
         return RequestConfig(
             method = RequestMethod.GET,
             path = "/api/v1/scenes/{scene_id}".replace("{"+"scene_id"+"}", encodeURIComponent(sceneId.toString())),
+            query = localVariableQuery,
+            headers = localVariableHeaders,
+            requiresAuthentication = true,
+            body = localVariableBody
+        )
+    }
+
+    /**
+     * Get Scene Initial Messages
+     * 
+     * @param sceneId 
+     * @return ApiResponseListInitialMessage
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
+    fun getSceneInitialMessagesApiV1ScenesSceneIdInitialMessagesGet(sceneId: java.util.UUID) : ApiResponseListInitialMessage {
+        val localVarResponse = getSceneInitialMessagesApiV1ScenesSceneIdInitialMessagesGetWithHttpInfo(sceneId = sceneId)
+
+        return when (localVarResponse.responseType) {
+            ResponseType.Success -> (localVarResponse as Success<*>).data as ApiResponseListInitialMessage
+            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
+            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
+            ResponseType.ClientError -> {
+                val localVarError = localVarResponse as ClientError<*>
+                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
+            }
+            ResponseType.ServerError -> {
+                val localVarError = localVarResponse as ServerError<*>
+                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()} ${localVarError.body}", localVarError.statusCode, localVarResponse)
+            }
+        }
+    }
+
+    /**
+     * Get Scene Initial Messages
+     * 
+     * @param sceneId 
+     * @return ApiResponse<ApiResponseListInitialMessage?>
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class)
+    fun getSceneInitialMessagesApiV1ScenesSceneIdInitialMessagesGetWithHttpInfo(sceneId: java.util.UUID) : ApiResponse<ApiResponseListInitialMessage?> {
+        val localVariableConfig = getSceneInitialMessagesApiV1ScenesSceneIdInitialMessagesGetRequestConfig(sceneId = sceneId)
+
+        return request<Unit, ApiResponseListInitialMessage>(
+            localVariableConfig
+        )
+    }
+
+    /**
+     * To obtain the request config of the operation getSceneInitialMessagesApiV1ScenesSceneIdInitialMessagesGet
+     *
+     * @param sceneId 
+     * @return RequestConfig
+     */
+    fun getSceneInitialMessagesApiV1ScenesSceneIdInitialMessagesGetRequestConfig(sceneId: java.util.UUID) : RequestConfig<Unit> {
+        val localVariableBody = null
+        val localVariableQuery: MultiValueMap = mutableMapOf()
+        val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Accept"] = "application/json"
+
+        return RequestConfig(
+            method = RequestMethod.GET,
+            path = "/api/v1/scenes/{scene_id}/initial-messages".replace("{"+"scene_id"+"}", encodeURIComponent(sceneId.toString())),
             query = localVariableQuery,
             headers = localVariableHeaders,
             requiresAuthentication = true,
@@ -1033,6 +1180,84 @@ class ScenesApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient 
         return RequestConfig(
             method = RequestMethod.POST,
             path = "/api/v1/scenes/update/{scene_id}".replace("{"+"scene_id"+"}", encodeURIComponent(sceneId.toString())),
+            query = localVariableQuery,
+            headers = localVariableHeaders,
+            requiresAuthentication = true,
+            body = localVariableBody
+        )
+    }
+
+    /**
+     * Update Scene Initial Message
+     * 
+     * @param sceneId 
+     * @param initialMessageId 
+     * @param bodyUpdateSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdPut 
+     * @return ModelApiResponse
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
+    fun updateSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdPut(sceneId: java.util.UUID, initialMessageId: java.util.UUID, bodyUpdateSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdPut: BodyUpdateSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdPut) : ModelApiResponse {
+        val localVarResponse = updateSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdPutWithHttpInfo(sceneId = sceneId, initialMessageId = initialMessageId, bodyUpdateSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdPut = bodyUpdateSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdPut)
+
+        return when (localVarResponse.responseType) {
+            ResponseType.Success -> (localVarResponse as Success<*>).data as ModelApiResponse
+            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
+            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
+            ResponseType.ClientError -> {
+                val localVarError = localVarResponse as ClientError<*>
+                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
+            }
+            ResponseType.ServerError -> {
+                val localVarError = localVarResponse as ServerError<*>
+                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()} ${localVarError.body}", localVarError.statusCode, localVarResponse)
+            }
+        }
+    }
+
+    /**
+     * Update Scene Initial Message
+     * 
+     * @param sceneId 
+     * @param initialMessageId 
+     * @param bodyUpdateSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdPut 
+     * @return ApiResponse<ModelApiResponse?>
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class)
+    fun updateSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdPutWithHttpInfo(sceneId: java.util.UUID, initialMessageId: java.util.UUID, bodyUpdateSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdPut: BodyUpdateSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdPut) : ApiResponse<ModelApiResponse?> {
+        val localVariableConfig = updateSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdPutRequestConfig(sceneId = sceneId, initialMessageId = initialMessageId, bodyUpdateSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdPut = bodyUpdateSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdPut)
+
+        return request<BodyUpdateSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdPut, ModelApiResponse>(
+            localVariableConfig
+        )
+    }
+
+    /**
+     * To obtain the request config of the operation updateSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdPut
+     *
+     * @param sceneId 
+     * @param initialMessageId 
+     * @param bodyUpdateSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdPut 
+     * @return RequestConfig
+     */
+    fun updateSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdPutRequestConfig(sceneId: java.util.UUID, initialMessageId: java.util.UUID, bodyUpdateSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdPut: BodyUpdateSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdPut) : RequestConfig<BodyUpdateSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdPut> {
+        val localVariableBody = bodyUpdateSceneInitialMessageApiV1ScenesSceneIdInitialMessagesInitialMessageIdPut
+        val localVariableQuery: MultiValueMap = mutableMapOf()
+        val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Content-Type"] = "application/json"
+        localVariableHeaders["Accept"] = "application/json"
+
+        return RequestConfig(
+            method = RequestMethod.PUT,
+            path = "/api/v1/scenes/{scene_id}/initial-messages/{initial_message_id}".replace("{"+"scene_id"+"}", encodeURIComponent(sceneId.toString())).replace("{"+"initial_message_id"+"}", encodeURIComponent(initialMessageId.toString())),
             query = localVariableQuery,
             headers = localVariableHeaders,
             requiresAuthentication = true,

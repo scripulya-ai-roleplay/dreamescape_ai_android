@@ -7,6 +7,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -155,7 +157,7 @@ fun ChatScreen(
 
     LaunchedEffect(Unit) {
         viewModel.loadMessages()
-        viewModel.loadSceneImage()
+        viewModel.loadChat()
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -187,33 +189,67 @@ fun ChatScreen(
             }
 
             Box(modifier = Modifier.weight(1f)) {
-                if (uiState.isLoading && uiState.messages.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
+                when {
+                    uiState.isLoading && uiState.messages.isEmpty() && !uiState.needsInitialMessage -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
                     }
-                } else if (uiState.messages.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "No messages yet. Say hello!",
-                            color = Color.White,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
+                    uiState.needsInitialMessage -> {
+                        // Opening-greeting carousel: the scene's greetings render like
+                        // a normal model message, with transparent < / > controls and an
+                        // n/total counter. Sending the first reply commits the shown one.
+                        LazyColumn(modifier = Modifier.fillMaxSize(), reverseLayout = true) {
+                            item {
+                                val greeting = uiState.sceneInitialMessages
+                                    .getOrNull(uiState.currentInitialMessageIndex)
+                                if (greeting != null) {
+                                    InitialMessageCarouselItem(
+                                        text = greeting.text,
+                                        index = uiState.currentInitialMessageIndex,
+                                        total = uiState.sceneInitialMessages.size,
+                                        enabled = !uiState.isSending,
+                                        onPrevious = viewModel::selectPreviousInitialMessage,
+                                        onNext = viewModel::selectNextInitialMessage
+                                    )
+                                }
+                            }
+                            itemsIndexed(uiState.messages.asReversed()) { index, message ->
+                                MessageItem(message = message)
+                                if (index < uiState.messages.lastIndex) {
+                                    HorizontalDivider(
+                                        color = Color.White.copy(alpha = 0.15f),
+                                        thickness = 1.dp
+                                    )
+                                }
+                            }
+                        }
                     }
-                } else {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        itemsIndexed(uiState.messages) { index, message ->
-                            MessageItem(message = message)
-                            if (index < uiState.messages.lastIndex) {
-                                HorizontalDivider(
-                                    color = Color.White.copy(alpha = 0.15f),
-                                    thickness = 1.dp
-                                )
+                    uiState.messages.isEmpty() -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "No messages yet. Say hello!",
+                                color = Color.White,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+                    else -> {
+                        LazyColumn(modifier = Modifier.fillMaxSize(), reverseLayout = true) {
+                            itemsIndexed(uiState.messages.asReversed()) { index, message ->
+                                MessageItem(message = message)
+                                if (index < uiState.messages.lastIndex) {
+                                    HorizontalDivider(
+                                        color = Color.White.copy(alpha = 0.15f),
+                                        thickness = 1.dp
+                                    )
+                                }
                             }
                         }
                     }
@@ -240,9 +276,20 @@ fun ChatScreen(
                 }
             }
 
+            // Thin white line splitting the swipe panel from the text entry panel so
+            // the two same-colored bands stay distinguishable (only while the opening
+            // greeting carousel is shown).
+            if (uiState.needsInitialMessage) {
+                HorizontalDivider(
+                    color = Color.White.copy(alpha = 0.4f),
+                    thickness = 1.dp
+                )
+            }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .background(Color.Black.copy(alpha = 0.45f))
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -270,6 +317,86 @@ fun ChatScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * The opening-greeting carousel shown when a chat has no chosen greeting. Renders
+ * the current scene greeting identically to a normal model message (same "Model"
+ * label, darkened background, markdown + roleplay styling), but adds a transparent
+ * `<` / `>` pair and an `n/total` counter to browse the scene's greetings. The
+ * shown greeting is committed when the user sends their first reply.
+ */
+@Composable
+fun InitialMessageCarouselItem(
+    text: String,
+    index: Int,
+    total: Int,
+    enabled: Boolean,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit
+) {
+    val displayText = extractModelMessageText(text)
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // The greeting, rendered exactly like a normal model message: "Model"
+        // label, darkened background, markdown + roleplay styling — no controls.
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.Black.copy(alpha = 0.45f))
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Text(
+                text = "Model",
+                color = Color.White,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Markdown(
+                content = displayText,
+                colors = markdownColor(text = Color.White),
+                components = markdownComponents(
+                    paragraph = roleplayParagraph,
+                    text = roleplayText
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        // Swipe panel centered under the greeting, on the same darkened background
+        // as the messages. Transparent < / > with only the characters visible, and an
+        // n/total counter. Disabled (dimmed) at the bounds or while a send is in flight.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.Black.copy(alpha = 0.45f))
+                .padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "<",
+                color = if (index > 0 && enabled) Color.White else Color.White.copy(alpha = 0.3f),
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier
+                    .clickable { if (index > 0 && enabled) onPrevious() }
+                    .padding(horizontal = 12.dp, vertical = 2.dp)
+            )
+            Text(
+                text = "${index + 1}/$total",
+                color = Color.White.copy(alpha = 0.8f),
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+            Text(
+                text = ">",
+                color = if (index < total - 1 && enabled) Color.White else Color.White.copy(alpha = 0.3f),
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier
+                    .clickable { if (index < total - 1 && enabled) onNext() }
+                    .padding(horizontal = 12.dp, vertical = 2.dp)
+            )
         }
     }
 }

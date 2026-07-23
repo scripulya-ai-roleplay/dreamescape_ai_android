@@ -15,6 +15,7 @@
 
 package org.openapitools.client.models
 
+import org.openapitools.client.models.InitialMessage
 
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
@@ -25,9 +26,9 @@ import com.squareup.moshi.JsonClass
  * @param ownerId 
  * @param title 
  * @param backgroundPrompt 
- * @param initialMessageText 
  * @param id 
  * @param description 
+ * @param initialMessages 
  * @param isPublic 
  * @param chatsCount 
  * @param messagesCount 
@@ -45,14 +46,14 @@ data class Scene (
     @Json(name = "background_prompt")
     val backgroundPrompt: kotlin.String,
 
-    @Json(name = "initial_message_text")
-    val initialMessageText: kotlin.String,
-
     @Json(name = "id")
     val id: java.util.UUID? = null,
 
     @Json(name = "description")
     val description: kotlin.String? = null,
+
+    @Json(name = "initial_messages")
+    val initialMessages: kotlin.collections.List<InitialMessage>? = null,
 
     @Json(name = "is_public")
     val isPublic: kotlin.Boolean? = false,
