@@ -39,6 +39,7 @@ import org.openapitools.client.models.SendMessageRequest
 import java.time.OffsetDateTime
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 data class ChatUiState(
     val messages: List<Message> = emptyList(),
@@ -57,7 +58,12 @@ data class ChatUiState(
     val needsInitialMessage: Boolean = false,
     val sceneInitialMessages: List<InitialMessage> = emptyList(),
     val currentInitialMessageIndex: Int = 0,
-    val isChoosingInitialMessage: Boolean = false
+    val isChoosingInitialMessage: Boolean = false,
+    // Incrementally-accumulated model reply while per-token SSE frames stream in.
+    // Shown as a transient bubble that is replaced by the authoritative message once
+    // the terminal "message" event lands (or cleared on stream close). Empty unless a
+    // generation is actively streaming.
+    val streamingText: String = ""
 )
 
 class ChatViewModel(
@@ -209,7 +215,12 @@ class ChatViewModel(
             return
         }
 
-        _uiState.value = _uiState.value.copy(isSending = true, input = "", errorMessage = null)
+        _uiState.value = _uiState.value.copy(
+            isSending = true,
+            input = "",
+            errorMessage = null,
+            streamingText = ""
+        )
 
         viewModelScope.launch(ioDispatcher) {
             try {
@@ -273,10 +284,21 @@ class ChatViewModel(
     private var eventsCall: Call? = null
     private var thinkingJob: Job? = null
 
+    // --- per-token streaming state ---
+    // The SSE loop appends raw token chunks to [streamingRaw] as fast as they
+    // arrive (bursty). A separate reveal pump drains it word-by-word at a fixed
+    // cadence so the bubble fills one word at a time regardless of token batching.
+    private var streamingRaw = StringBuffer()
+    private var revealedLength = 0
+    @Volatile private var streamComplete = false
+    private val streamFinalized = AtomicBoolean(false)
+    private var revealJob: Job? = null
+
     override fun onCleared() {
         super.onCleared()
         eventsCall?.cancel()
         thinkingJob?.cancel()
+        revealJob?.cancel()
     }
 
     /**
@@ -317,13 +339,24 @@ class ChatViewModel(
     /**
      * Opens the SSE stream of model-message lifecycle events for this chat.
      *
-     * Frames are `event: message` / `event: error` with a `data: {"message": …}`
-     * JSON payload; `: keepalive` lines are comments. On connect the server emits
-     * the latest model message as a reconciliation frame, so we only reload on a
-     * terminal (completed/failed) frame for a message we don't already show: the
-     * pending message we're waiting on ([pendingId]), or — if no pending message
-     * was visible yet — any new id absent from [knownIds]. The thinking timer is
-     * stopped when the stream ends (reply delivered, closed, or canceled).
+     * Frame types (the event name precedes a `data:` JSON payload; `: keepalive`
+     * lines are comments):
+     *  - `token` — a chunk of the reply as it generates; appended to the raw buffer.
+     *    The reveal pump uncovers it one word at a time. On the first token the
+     *    "thinking" spinner hands off to the growing bubble.
+     *  - `generation_start` / `generation_done` — lifecycle markers; the token
+     *    frames and the terminal `message` drive the UI, so these are no-ops here.
+     *  - `message` — the authoritative persisted message. On connect the latest
+     *    model message is emitted as a reconcile frame; we only act on a terminal
+     *    (completed/failed) frame for a message we don't already show: the pending
+     *    message we're waiting on ([pendingId]), or — if none was visible yet — any
+     *    new id absent from [knownIds].
+     *
+     * The word-by-word reveal is decoupled from token arrival: the SSE loop only
+     * feeds the buffer, and [startRevealPump] drains it at a fixed cadence. The
+     * bubble is swapped for the real message ([finalizeStream]) only once the reveal
+     * has caught up — so if tokens never arrive (or the stream drops), the whole
+     * message is rendered directly and the UI never stalls on a partial bubble.
      */
     private fun connectEvents(knownIds: Set<UUID>, pendingId: UUID?) {
         eventsCall?.cancel()
@@ -342,10 +375,12 @@ class ChatViewModel(
         val call = sseClient.newCall(request)
         eventsCall = call
 
+        resetStreamState()
+        startRevealPump()
+
         viewModelScope.launch(ioDispatcher) {
             var eventName = ""
             val data = StringBuilder()
-            var replyHandled = false
             try {
                 call.execute().use { response ->
                     if (!response.isSuccessful) return@launch
@@ -359,11 +394,13 @@ class ChatViewModel(
                                 data.append(line.removePrefix("data:").trim())
                             }
                             line.isEmpty() -> {
+                                // A terminal reply with no streamed text reloads at
+                                // once (whole-message fallback); anything else just
+                                // feeds the buffer / defers to the reveal pump.
                                 if (data.isNotEmpty() &&
-                                    isTerminalReply(eventName, data.toString(), knownIds, pendingId)
+                                    handleStreamFrame(eventName, data.toString(), knownIds, pendingId) ==
+                                    StreamAction.RELOAD
                                 ) {
-                                    replyHandled = true
-                                    reloadAfterReply()
                                     return@launch
                                 }
                                 data.setLength(0)
@@ -378,16 +415,113 @@ class ChatViewModel(
                 // picks up any reply that landed.
             } finally {
                 stopThinking()
-                // If the stream ended without a terminal frame (close, cancel,
-                // or a reply that slipped through), reconcile once more so the
-                // user needn't re-enter the chat to see the reply.
-                if (!replyHandled) reloadAfterReply()
+                // If the stream ended without the pump finalizing (close, cancel, or
+                // a reply that slipped through), render the whole message now.
+                if (!streamFinalized.get()) finalizeStream()
             }
         }
     }
 
-    private fun isTerminalReply(
+    /**
+     * Dispatches one fully-read SSE frame. `token` text is appended to the raw
+     * buffer (the reveal pump surfaces it word-by-word) and the thinking spinner is
+     * dropped; the generation lifecycle markers are ignored. A `message` frame that
+     * is our terminal reply returns [StreamAction.RELOAD] when nothing was streamed
+     * (render the whole message now), or marks the stream complete and returns
+     * [StreamAction.CONTINUE] so the reveal pump can finish before the swap.
+     */
+    internal fun handleStreamFrame(
         eventName: String,
+        payload: String,
+        knownIds: Set<UUID>,
+        pendingId: UUID?
+    ): StreamAction {
+        return when (eventName) {
+            "token" -> {
+                parseTokenText(payload)?.let { chunk -> if (chunk.isNotEmpty()) streamingRaw.append(chunk) }
+                stopThinking()
+                StreamAction.CONTINUE
+            }
+            "generation_start", "generation_done" -> StreamAction.CONTINUE
+            else -> when {
+                !isTerminalReply(payload, knownIds, pendingId) -> StreamAction.CONTINUE
+                streamingRaw.isNotEmpty() -> {
+                    // Let the word-by-word reveal finish, then the pump swaps it in.
+                    streamComplete = true
+                    StreamAction.CONTINUE
+                }
+                else -> StreamAction.RELOAD
+            }
+        }
+    }
+
+    /** Pulls the `text` field out of a `token` frame's payload, or null if absent. */
+    private fun parseTokenText(payload: String): String? {
+        val json = runCatching { JSONObject(payload) }.getOrNull() ?: return null
+        return if (json.has("text")) json.optString("text") else null
+    }
+
+    /** Clears the streaming buffer and reveal state for a fresh generation. */
+    private fun resetStreamState() {
+        revealJob?.cancel()
+        revealJob = null
+        streamingRaw = StringBuffer()
+        revealedLength = 0
+        streamComplete = false
+        streamFinalized.set(false)
+        if (_uiState.value.streamingText.isNotEmpty()) {
+            _uiState.value = _uiState.value.copy(streamingText = "")
+        }
+    }
+
+    /**
+     * Drains the streamed buffer one word at a time at [WORD_REVEAL_MS] cadence,
+     * decoupled from how fast tokens arrive. Once every available word is uncovered
+     * and the stream is complete, the bubble is swapped for the real message.
+     */
+    private fun startRevealPump() {
+        revealJob?.cancel()
+        revealJob = viewModelScope.launch(ioDispatcher) {
+            while (coroutineContext.isActive) {
+                delay(WORD_REVEAL_MS)
+                if (pumpReveal()) break
+            }
+        }
+    }
+
+    /**
+     * One reveal step: uncover the next whitespace-delimited word if any remains;
+     * otherwise, once generation is done, finalize. Returns true once finalized.
+     */
+    internal fun pumpReveal(): Boolean {
+        val available = streamingDisplayText(streamingRaw.toString())
+        if (revealedLength > available.length) revealedLength = available.length
+        return if (revealedLength < available.length) {
+            revealedLength = nextRevealBoundary(available, revealedLength)
+            _uiState.value = _uiState.value.copy(streamingText = available.take(revealedLength))
+            false
+        } else if (streamComplete) {
+            finalizeStream()
+            true
+        } else {
+            false
+        }
+    }
+
+    /** Swaps the streaming bubble for the real message and tears the stream down. Idempotent. */
+    private fun finalizeStream() {
+        // The reveal pump and the SSE reader's finally can both race to finalize
+        // (e.g. a deferred swap whose stream then drops); only the first wins.
+        if (!streamFinalized.compareAndSet(false, true)) return
+        revealJob?.cancel()
+        revealJob = null
+        eventsCall?.cancel()
+        reloadAfterReply()
+    }
+
+    internal enum class StreamAction { CONTINUE, RELOAD }
+
+    private fun isTerminalReply(
         payload: String,
         knownIds: Set<UUID>,
         pendingId: UUID?
@@ -408,7 +542,13 @@ class ChatViewModel(
         viewModelScope.launch(ioDispatcher) {
             try {
                 val response = loadMessagesCall(chatId)
-                _uiState.value = _uiState.value.copy(messages = response.result.items.sortedChronologically())
+                // Swap the streaming bubble for the authoritative message in the same
+                // update so the reply never flickers out between the two. On failure the
+                // streamed text is kept as the best available rendering of the reply.
+                _uiState.value = _uiState.value.copy(
+                    messages = response.result.items.sortedChronologically(),
+                    streamingText = ""
+                )
             } catch (_: Exception) {
                 // Best-effort refresh; the user can reopen the chat to retry.
             }
@@ -417,5 +557,20 @@ class ChatViewModel(
 
     private companion object {
         const val THINKING_TICK_MS = 1000L
+        const val WORD_REVEAL_MS = 100L
     }
+}
+
+/**
+ * Returns the index in [text] at the end of the next whitespace-delimited word
+ * starting at [from] (skipping any leading whitespace) — i.e. advancing the
+ * word-by-word reveal by one word. Returns [text].length when nothing remains.
+ */
+internal fun nextRevealBoundary(text: String, from: Int): Int {
+    if (from >= text.length) return text.length
+    var i = from
+    while (i < text.length && text[i].isWhitespace()) i++
+    if (i >= text.length) return text.length
+    while (i < text.length && !text[i].isWhitespace()) i++
+    return i
 }

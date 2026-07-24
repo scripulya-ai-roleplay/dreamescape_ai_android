@@ -242,6 +242,21 @@ fun ChatScreen(
                     }
                     else -> {
                         LazyColumn(modifier = Modifier.fillMaxSize(), reverseLayout = true) {
+                            // The in-flight reply, streamed token by token. reverseLayout
+                            // places this first item at the bottom (newest position); the
+                            // growing bubble replaces the "thinking" spinner once tokens
+                            // arrive, and is swapped for the real message after the reload.
+                            if (uiState.streamingText.isNotEmpty()) {
+                                item(key = "streaming-draft") {
+                                    MessageItem(
+                                        message = Message(
+                                            message = uiState.streamingText,
+                                            chatId = chatId,
+                                            role = ChatRoles.model
+                                        )
+                                    )
+                                }
+                            }
                             itemsIndexed(uiState.messages.asReversed()) { index, message ->
                                 MessageItem(message = message)
                                 if (index < uiState.messages.lastIndex) {

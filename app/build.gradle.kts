@@ -56,6 +56,11 @@ dependencies {
     implementation("com.mikepenz:multiplatform-markdown-renderer-m3:0.27.0")
     testImplementation(libs.junit)
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    // Real org.json for host-side unit tests: production uses Android's bundled
+    // org.json on-device, but the unit-test mockable android.jar stubs its methods
+    // to throw "not mocked". This provides a working implementation on the test
+    // classpath so JSON-parsing paths (e.g. SSE token/message frames) are testable.
+    testImplementation("org.json:json:20240303")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

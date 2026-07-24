@@ -15,6 +15,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.json.JSONObject
+import com.example.dreamescape_ai.ChatViewModel.StreamAction
 import org.openapitools.client.models.ApiResponseChat
 import org.openapitools.client.models.ApiResponseListInitialMessage
 import org.openapitools.client.models.ApiResponseMessage
@@ -340,5 +342,109 @@ class ChatViewModelTest {
         assertEquals(greetingTwo, seededId) // committed the displayed greeting
         assertEquals("Hello", sentDto?.message) // then sent the reply
         assertFalse(viewModel.uiState.value.needsInitialMessage) // gate cleared after reload
+    }
+
+    // ---- per-token streaming (word-by-word reveal of token / generation_* / message frames) ----
+
+    private fun tokenFrame(chunk: String): String =
+        JSONObject().put("text", chunk).toString()
+
+    private fun messagePayload(id: UUID, status: String): String =
+        JSONObject().put("message", JSONObject().put("id", id.toString()).put("status", status)).toString()
+
+    @Test
+    fun `nextRevealBoundary advances one whitespace-delimited word at a time`() {
+        val text = "Hello world foo"
+        assertEquals(5, nextRevealBoundary(text, 0))
+        assertEquals(11, nextRevealBoundary(text, 5))
+        assertEquals(15, nextRevealBoundary(text, 11))
+        assertEquals(15, nextRevealBoundary(text, 15)) // nothing left
+    }
+
+    @Test
+    fun `nextRevealBoundary skips trailing and leading whitespace to the end`() {
+        assertEquals(11, nextRevealBoundary("Hi there   ", 8)) // trailing spaces -> end
+        assertEquals(4, nextRevealBoundary("  Hi", 0)) // leading spaces skipped, then word
+        assertEquals(0, nextRevealBoundary("", 0))
+    }
+
+    @Test
+    fun `the pump reveals streamed tokens one word per step`() {
+        val viewModel = createViewModel()
+
+        // Only JSON scaffolding has arrived — nothing to reveal yet.
+        viewModel.handleStreamFrame("token", tokenFrame("```json\n{"), emptySet(), null)
+        assertEquals(false, viewModel.pumpReveal())
+        assertEquals("", viewModel.uiState.value.streamingText)
+
+        // Inner text begins to arrive; the pump uncovers it word by word.
+        viewModel.handleStreamFrame("token", tokenFrame("\n  \"text\": \"He looked"), emptySet(), null)
+        assertEquals(false, viewModel.pumpReveal())
+        assertEquals("He", viewModel.uiState.value.streamingText)
+        assertEquals(false, viewModel.pumpReveal())
+        assertEquals("He looked", viewModel.uiState.value.streamingText)
+        // Caught up but generation isn't done — idles on the revealed text.
+        assertEquals(false, viewModel.pumpReveal())
+        assertEquals("He looked", viewModel.uiState.value.streamingText)
+
+        // More tokens extend the buffer; the pump keeps draining one word at a time.
+        viewModel.handleStreamFrame("token", tokenFrame(" at you"), emptySet(), null)
+        assertEquals(false, viewModel.pumpReveal())
+        assertEquals("He looked at", viewModel.uiState.value.streamingText)
+        assertEquals(false, viewModel.pumpReveal())
+        assertEquals("He looked at you", viewModel.uiState.value.streamingText)
+    }
+
+    @Test
+    fun `handleStreamFrame treats generation lifecycle markers as continue`() {
+        val viewModel = createViewModel()
+        val marker = JSONObject().put("request_id", "00000000-0000-0000-0000-0000000000ff").toString()
+
+        assertEquals(StreamAction.CONTINUE, viewModel.handleStreamFrame("generation_start", marker, emptySet(), null))
+        assertEquals(StreamAction.CONTINUE, viewModel.handleStreamFrame("generation_done", marker, emptySet(), null))
+        assertEquals("", viewModel.uiState.value.streamingText)
+    }
+
+    @Test
+    fun `a terminal message with streamed text defers the swap until the reveal catches up`() = runTest {
+        val pendingId = UUID.fromString("00000000-0000-0000-0000-0000000000ee")
+        val viewModel = createViewModel()
+        viewModel.handleStreamFrame("token", tokenFrame("\n  \"text\": \"He looked"), emptySet(), null)
+
+        // Terminal arrives while text remains buffered -> deferred, not an immediate reload.
+        assertEquals(
+            StreamAction.CONTINUE,
+            viewModel.handleStreamFrame("message", messagePayload(pendingId, "completed"), emptySet(), pendingId)
+        )
+
+        // Reveal the remaining words, then finalize once caught up.
+        assertEquals(false, viewModel.pumpReveal())
+        assertEquals("He", viewModel.uiState.value.streamingText)
+        assertEquals(false, viewModel.pumpReveal())
+        assertEquals("He looked", viewModel.uiState.value.streamingText)
+        assertEquals(true, viewModel.pumpReveal()) // caught up + complete -> swap
+        advanceUntilIdle() // run the reload the swap scheduled
+
+        assertEquals("", viewModel.uiState.value.streamingText)
+    }
+
+    @Test
+    fun `a terminal message with no streamed text reloads immediately`() {
+        val pendingId = UUID.fromString("00000000-0000-0000-0000-0000000000ee")
+        val viewModel = createViewModel()
+        assertEquals(
+            StreamAction.RELOAD,
+            viewModel.handleStreamFrame("message", messagePayload(pendingId, "completed"), emptySet(), pendingId)
+        )
+    }
+
+    @Test
+    fun `handleStreamFrame continues for non-terminal pending message frames`() {
+        val pendingId = UUID.fromString("00000000-0000-0000-0000-0000000000ee")
+        val viewModel = createViewModel()
+        assertEquals(
+            StreamAction.CONTINUE,
+            viewModel.handleStreamFrame("message", messagePayload(pendingId, "pending"), emptySet(), pendingId)
+        )
     }
 }
