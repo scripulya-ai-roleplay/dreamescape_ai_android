@@ -1,8 +1,7 @@
 package com.example.dreamescape_ai.ui.components
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,10 +40,9 @@ import com.example.dreamescape_ai.ui.theme.ScripulyaText
 /**
  * Poster-style preview for an owned scene or character. Mirrors the discovery
  * [StoryCard] look, but swaps the stat line for a Private/Public badge pinned
- * to the top-right corner. A long press opens the per-card action menu
- * (View / Edit / Delete) — see [onLongClick].
+ * to the top-right corner. A tap opens the per-card action menu
+ * (View / Edit / Delete) — see [onClick].
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun OwnedCard(
     title: String,
@@ -52,18 +50,14 @@ fun OwnedCard(
     imageUrl: String?,
     isPublic: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    onLongClick: (() -> Unit)? = null
+    modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
             .aspectRatio(0.70f)
             .clip(RoundedCornerShape(18.dp))
             .background(NightPanel)
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick
-            )
+            .clickable(onClick = onClick)
     ) {
         if (imageUrl != null) {
             AsyncImage(

@@ -83,7 +83,7 @@ fun MyContentScreen(
 ) {
     val gridState = rememberLazyGridState()
 
-    // The card whose long-press action menu is open, and the card awaiting a
+    // The card whose tap action menu is open, and the card awaiting a
     // delete confirmation. Held by id/object rather than index so pagination
     // can't shift them out from under the menu.
     var menuCardId by remember { mutableStateOf<String?>(null) }
@@ -134,10 +134,9 @@ fun MyContentScreen(
                             subtitle = card.subtitle,
                             imageUrl = card.imageUrl,
                             isPublic = card.isPublic,
-                            onClick = { onItemClick(card) },
-                            onLongClick = { menuCardId = card.id }
+                            onClick = { menuCardId = card.id }
                         )
-                        // Long-press action menu, anchored to this card.
+                        // Tap action menu, anchored to this card.
                         DropdownMenu(
                             expanded = menuCardId == card.id,
                             onDismissRequest = { menuCardId = null }
