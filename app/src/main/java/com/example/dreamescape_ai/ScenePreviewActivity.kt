@@ -80,6 +80,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.dreamescape_ai.ui.components.BookmarkButton
+import com.example.dreamescape_ai.ui.components.EngagementBottomBar
 import com.example.dreamescape_ai.ui.components.LikeButton
 import com.example.dreamescape_ai.ui.theme.Dreamescape_aiTheme
 import java.util.UUID
@@ -215,25 +216,27 @@ fun ScenePreviewScreen(
 
             DescriptionSection(uiState = uiState)
 
-            StartChatAndEngagementSection(
-                isLiked = uiState.isLiked,
-                likesCount = uiState.likesCount,
-                isBookmarked = uiState.isBookmarked,
-                engagementError = uiState.engagementError,
-                isCreatingChat = uiState.isCreatingChat,
-                chatCreationError = uiState.chatCreationError,
-                onToggleLike = viewModel::toggleLike,
-                onToggleBookmark = viewModel::toggleBookmark,
-                onStartChat = {
-                    // Load the user's playable characters, then let them pick a persona
-                    // (or start without one) before the chat is created.
-                    viewModel.loadEligibleCharacters()
-                    showPersonaPicker = true
-                }
-            )
-
-            Spacer(modifier = Modifier.navigationBarsPadding())
+            // Clearance so the description's tail isn't hidden under the pinned bar.
+            Spacer(modifier = Modifier.height(96.dp))
         }
+
+        StartChatAndEngagementSection(
+            isLiked = uiState.isLiked,
+            likesCount = uiState.likesCount,
+            isBookmarked = uiState.isBookmarked,
+            engagementError = uiState.engagementError,
+            isCreatingChat = uiState.isCreatingChat,
+            chatCreationError = uiState.chatCreationError,
+            onToggleLike = viewModel::toggleLike,
+            onToggleBookmark = viewModel::toggleBookmark,
+            onStartChat = {
+                // Load the user's playable characters, then let them pick a persona
+                // (or start without one) before the chat is created.
+                viewModel.loadEligibleCharacters()
+                showPersonaPicker = true
+            },
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
 
         if (showPersonaPicker) {
             PersonaPickerScreen(
@@ -482,38 +485,41 @@ private fun StartChatAndEngagementSection(
     chatCreationError: String?,
     onToggleLike: () -> Unit,
     onToggleBookmark: () -> Unit,
-    onStartChat: () -> Unit
+    onStartChat: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 24.dp, start = 16.dp, end = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        LikeButton(isLiked = isLiked, likesCount = likesCount, onClick = onToggleLike)
-        BookmarkButton(isBookmarked = isBookmarked, onClick = onToggleBookmark)
-        Button(
-            onClick = onStartChat,
-            enabled = !isCreatingChat,
-            modifier = Modifier.weight(1f)
+    EngagementBottomBar(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            if (isCreatingChat) {
-                CircularProgressIndicator()
-            } else {
-                Text("Start Chat")
+            LikeButton(isLiked = isLiked, likesCount = likesCount, onClick = onToggleLike)
+            BookmarkButton(isBookmarked = isBookmarked, onClick = onToggleBookmark)
+            Button(
+                onClick = onStartChat,
+                enabled = !isCreatingChat,
+                modifier = Modifier.weight(1f)
+            ) {
+                if (isCreatingChat) {
+                    CircularProgressIndicator()
+                } else {
+                    Text("Start Chat")
+                }
             }
         }
-    }
 
-    val error = engagementError ?: chatCreationError
-    if (error != null) {
-        Text(
-            text = error,
-            color = MaterialTheme.colorScheme.error,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
+        val error = engagementError ?: chatCreationError
+        if (error != null) {
+            Text(
+                text = error,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+        }
     }
 }
 

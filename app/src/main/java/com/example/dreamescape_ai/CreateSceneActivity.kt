@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -32,29 +34,43 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.dreamescape_ai.ui.components.ImagePickerSection
+import com.example.dreamescape_ai.ui.components.rememberScrollForwarder
 import com.example.dreamescape_ai.ui.theme.Dreamescape_aiTheme
 import org.openapitools.client.models.MediaEntityType
+import java.util.UUID
 
 class CreateSceneActivity : ComponentActivity() {
+
+    companion object {
+        const val EXTRA_SCENE_ID = "extra_scene_id"
+    }
+
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        val editId: UUID? = intent.getStringExtra(EXTRA_SCENE_ID)?.let {
+            runCatching { UUID.fromString(it) }.getOrNull()
+        }
+
         setContent {
             Dreamescape_aiTheme {
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     topBar = {
                         TopAppBar(
-                            title = { Text("Create Scene") },
+                            title = { Text(if (editId == null) "Create Scene" else "Edit Scene") },
                             navigationIcon = {
                                 IconButton(onClick = { finish() }) {
                                     Icon(
@@ -67,6 +83,7 @@ class CreateSceneActivity : ComponentActivity() {
                     }
                 ) { innerPadding ->
                     CreateSceneScreen(
+                        editId = editId,
                         modifier = Modifier.padding(innerPadding),
                         onSceneCreated = { finish() }
                     )
@@ -78,12 +95,17 @@ class CreateSceneActivity : ComponentActivity() {
 
 @Composable
 fun CreateSceneScreen(
+    editId: UUID? = null,
     modifier: Modifier = Modifier,
     onSceneCreated: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val viewModel: CreateSceneViewModel = viewModel(factory = createSceneViewModelFactory(context))
+    val viewModel: CreateSceneViewModel = viewModel(factory = createSceneViewModelFactory(context, editId))
     val uiState by viewModel.uiState.collectAsState()
+    val scrollState = rememberScrollState()
+    // Drags that start over a multiline field forward to the page scroll instead
+    // of being swallowed by the field's own (empty) scroll container.
+    val scrollForwarder = rememberScrollForwarder(scrollState)
 
     if (uiState.isSuccess) {
         onSceneCreated()
@@ -92,11 +114,16 @@ fun CreateSceneScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .verticalScroll(scrollState)
             .padding(16.dp),
         verticalArrangement = Arrangement.Top
     ) {
+        if (uiState.isPrefilling) {
+            CircularProgressIndicator()
+        }
+
         Text(
-            text = "Create Scene",
+            text = if (uiState.isEdit) "Edit Scene" else "Create Scene",
             style = MaterialTheme.typography.headlineMedium
         )
 
@@ -116,7 +143,7 @@ fun CreateSceneScreen(
             value = uiState.description,
             onValueChange = viewModel::onDescriptionChanged,
             label = { Text("Description") },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().nestedScroll(scrollForwarder),
             minLines = 2
         )
 
@@ -126,7 +153,7 @@ fun CreateSceneScreen(
             value = uiState.backgroundPrompt,
             onValueChange = viewModel::onBackgroundPromptChanged,
             label = { Text("Background Prompt") },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().nestedScroll(scrollForwarder),
             minLines = 3
         )
 
@@ -147,7 +174,7 @@ fun CreateSceneScreen(
                     value = messageText,
                     onValueChange = { viewModel.onInitialMessageChanged(index, it) },
                     label = { Text("Initial message ${index + 1}") },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).nestedScroll(scrollForwarder),
                     minLines = 2
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -195,22 +222,23 @@ fun CreateSceneScreen(
         Button(
             onClick = viewModel::createScene,
             modifier = Modifier.fillMaxWidth(),
-            enabled = !uiState.isLoading
+            enabled = !uiState.isLoading && !uiState.isPrefilling
         ) {
             if (uiState.isLoading) {
                 CircularProgressIndicator()
             } else {
-                Text("Create")
+                Text(if (uiState.isEdit) "Update" else "Create")
             }
         }
     }
 }
 
-private fun createSceneViewModelFactory(context: Context): ViewModelProvider.Factory =
+private fun createSceneViewModelFactory(context: Context, editId: UUID?): ViewModelProvider.Factory =
     object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
             CreateSceneViewModel(
+                editId = editId,
                 uploadImage = { id, uri, isPublic ->
                     MediaUploader.uploadUri(context, Uri.parse(uri), MediaEntityType.scene, id, isPublic)
                 }

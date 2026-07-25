@@ -48,6 +48,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.dreamescape_ai.ui.components.BookmarkButton
+import com.example.dreamescape_ai.ui.components.EngagementBottomBar
 import com.example.dreamescape_ai.ui.components.LikeButton
 import com.example.dreamescape_ai.ui.theme.Dreamescape_aiTheme
 import java.util.UUID
@@ -113,27 +114,32 @@ fun CharacterPreviewScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    Column(
-        modifier = modifier.verticalScroll(rememberScrollState())
-    ) {
-        CharacterHero(
-            title = uiState.character?.name ?: "Name there",
-            imageUrl = uiState.portraitUrl,
-            isLoading = uiState.character == null && uiState.isLoading,
-            onBack = onBack
-        )
-
-        val errorMessage = uiState.errorMessage
-        if (uiState.character == null && errorMessage != null) {
-            Text(
-                text = errorMessage,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(16.dp)
+    Box(modifier = modifier) {
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+        ) {
+            CharacterHero(
+                title = uiState.character?.name ?: "Name there",
+                imageUrl = uiState.portraitUrl,
+                isLoading = uiState.character == null && uiState.isLoading,
+                onBack = onBack
             )
-        }
 
-        CharacterDescriptionSection(uiState = uiState)
+            val errorMessage = uiState.errorMessage
+            if (uiState.character == null && errorMessage != null) {
+                Text(
+                    text = errorMessage,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+
+            CharacterDescriptionSection(uiState = uiState)
+
+            // Clearance so the description's tail isn't hidden under the pinned bar.
+            Spacer(modifier = Modifier.height(96.dp))
+        }
 
         CharacterEngagementSection(
             isLiked = uiState.isLiked,
@@ -141,10 +147,9 @@ fun CharacterPreviewScreen(
             isBookmarked = uiState.isBookmarked,
             errorMessage = uiState.engagementError,
             onToggleLike = viewModel::toggleLike,
-            onToggleBookmark = viewModel::toggleBookmark
+            onToggleBookmark = viewModel::toggleBookmark,
+            modifier = Modifier.align(Alignment.BottomCenter)
         )
-
-        Spacer(modifier = Modifier.navigationBarsPadding())
     }
 }
 
@@ -155,26 +160,29 @@ private fun CharacterEngagementSection(
     isBookmarked: Boolean,
     errorMessage: String?,
     onToggleLike: () -> Unit,
-    onToggleBookmark: () -> Unit
+    onToggleBookmark: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 24.dp, start = 24.dp, end = 24.dp),
-        horizontalArrangement = Arrangement.spacedBy(20.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        LikeButton(isLiked = isLiked, likesCount = likesCount, onClick = onToggleLike)
-        BookmarkButton(isBookmarked = isBookmarked, onClick = onToggleBookmark)
-    }
+    EngagementBottomBar(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            LikeButton(isLiked = isLiked, likesCount = likesCount, onClick = onToggleLike)
+            BookmarkButton(isBookmarked = isBookmarked, onClick = onToggleBookmark)
+        }
 
-    if (errorMessage != null) {
-        Text(
-            text = errorMessage,
-            color = MaterialTheme.colorScheme.error,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-        )
+        if (errorMessage != null) {
+            Text(
+                text = errorMessage,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+            )
+        }
     }
 }
 

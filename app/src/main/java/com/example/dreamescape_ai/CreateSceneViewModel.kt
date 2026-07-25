@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.openapitools.client.apis.ScenesApi
+import org.openapitools.client.models.ApiResponseListInitialMessage
+import org.openapitools.client.models.ApiResponseScene
 import org.openapitools.client.models.InitialMessage
 import org.openapitools.client.models.ModelApiResponse
 import org.openapitools.client.models.Scene
@@ -25,12 +27,26 @@ data class CreateSceneUiState(
     val imageUris: List<String> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
-    val isSuccess: Boolean = false
+    val isSuccess: Boolean = false,
+    /** True when editing an existing scene rather than creating a new one. */
+    val isEdit: Boolean = false,
+    /** True while the existing scene's fields are being loaded for editing. */
+    val isPrefilling: Boolean = false
 )
 
 class CreateSceneViewModel(
+    private val editId: UUID? = null,
     private val createSceneCall: (Scene) -> ModelApiResponse = { scene ->
         ScenesApi().createSceneApiV1ScenesPost(scene)
+    },
+    private val updateSceneCall: (UUID, Scene) -> ModelApiResponse = { id, scene ->
+        ScenesApi().updateSceneApiV1ScenesUpdateSceneIdPost(id, scene)
+    },
+    private val getSceneCall: (UUID) -> ApiResponseScene = { id ->
+        ScenesApi().getSceneDetailsApiV1ScenesSceneIdGet(sceneId = id)
+    },
+    private val getSceneInitialMessagesCall: (UUID) -> ApiResponseListInitialMessage = { id ->
+        ScenesApi().getSceneInitialMessagesApiV1ScenesSceneIdInitialMessagesGet(sceneId = id)
     },
     private val uploadImage: (entityId: UUID, uri: String, isPublic: Boolean) -> Unit = { _, _, _ -> },
     private val findCreatedId: (title: String) -> UUID? = { title ->
@@ -42,8 +58,38 @@ class CreateSceneViewModel(
     private val ownerId: UUID = JwtTokenProvider().userId
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(CreateSceneUiState())
+    private val _uiState = MutableStateFlow(CreateSceneUiState(isEdit = editId != null))
     val uiState: StateFlow<CreateSceneUiState> = _uiState.asStateFlow()
+
+    init {
+        // Edit mode: pull the existing scene so the form starts pre-filled.
+        if (editId != null) loadExisting(editId)
+    }
+
+    private fun loadExisting(id: UUID) {
+        _uiState.value = _uiState.value.copy(isPrefilling = true)
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                val scene = getSceneCall(id).result
+                val greetings = runCatching { getSceneInitialMessagesCall(id).result }
+                    .getOrDefault(emptyList())
+                    .map { it.text }
+                    .ifEmpty { listOf("") }
+                _uiState.value = _uiState.value.copy(
+                    title = scene.title,
+                    description = scene.description.orEmpty(),
+                    backgroundPrompt = scene.backgroundPrompt,
+                    initialMessages = greetings,
+                    isPrefilling = false
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isPrefilling = false,
+                    errorMessage = e.message ?: "Failed to load scene"
+                )
+            }
+        }
+    }
 
     // Creation progress so a retry after a failed image upload doesn't re-create
     // (and duplicate) the scene.
@@ -123,7 +169,11 @@ class CreateSceneViewModel(
         val state = _uiState.value
         if (state.isLoading) return
 
+        // When editing, new images attach to the existing scene's id.
+        if (state.isEdit && editId != null) createdEntityId = editId
+
         val scene = Scene(
+            id = if (state.isEdit) editId else null,
             ownerId = ownerId,
             title = state.title.trim(),
             description = state.description.trim().ifEmpty { null },
@@ -138,10 +188,14 @@ class CreateSceneViewModel(
 
         viewModelScope.launch(ioDispatcher) {
             try {
-                // The create endpoint returns no id, so the scene must be
-                // created before its images can be attached.
                 if (!entityCreated) {
-                    createSceneCall(scene)
+                    if (state.isEdit && editId != null) {
+                        updateSceneCall(editId, scene)
+                    } else {
+                        // The create endpoint returns no id, so the scene must be
+                        // created before its images can be attached.
+                        createSceneCall(scene)
+                    }
                     entityCreated = true
                 }
 
@@ -164,7 +218,8 @@ class CreateSceneViewModel(
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    errorMessage = e.message ?: "Failed to create scene"
+                    errorMessage = e.message ?: if (state.isEdit) "Failed to update scene"
+                    else "Failed to create scene"
                 )
             }
         }

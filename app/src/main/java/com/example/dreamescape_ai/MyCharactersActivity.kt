@@ -53,6 +53,13 @@ class MyCharactersActivity : ComponentActivity() {
                                 }
                             )
                         },
+                        onEdit = { card ->
+                            startActivity(
+                                Intent(this, CreateCharacterActivity::class.java).apply {
+                                    putExtra(CreateCharacterActivity.EXTRA_CHARACTER_ID, card.id)
+                                }
+                            )
+                        },
                         modifier = Modifier.padding(innerPadding)
                     )
                 }

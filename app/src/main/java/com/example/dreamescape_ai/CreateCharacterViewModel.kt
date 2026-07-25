@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.openapitools.client.apis.CharactersApi
+import org.openapitools.client.models.ApiResponseCharacter
 import org.openapitools.client.models.Character
 import org.openapitools.client.models.ModelApiResponse
 import java.io.IOException
@@ -22,12 +23,23 @@ data class CreateCharacterUiState(
     val imageUris: List<String> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
-    val isSuccess: Boolean = false
+    val isSuccess: Boolean = false,
+    /** True when editing an existing character rather than creating a new one. */
+    val isEdit: Boolean = false,
+    /** True while the existing character's fields are being loaded for editing. */
+    val isPrefilling: Boolean = false
 )
 
 class CreateCharacterViewModel(
+    private val editId: UUID? = null,
     private val createCharacterCall: (Character) -> ModelApiResponse = { character ->
         CharactersApi().createCharacterApiV1CharactersPost(character)
+    },
+    private val updateCharacterCall: (UUID, Character) -> ModelApiResponse = { id, character ->
+        CharactersApi().updateCharacterApiV1CharactersUpdateCharacterIdPost(id, character)
+    },
+    private val getCharacterCall: (UUID) -> ApiResponseCharacter = { id ->
+        CharactersApi().getCharacterDetailsApiV1CharactersCharacterIdGet(characterId = id)
     },
     private val uploadImage: (entityId: UUID, uri: String, isPublic: Boolean) -> Unit = { _, _, _ -> },
     private val findCreatedId: (name: String) -> UUID? = { name ->
@@ -39,8 +51,33 @@ class CreateCharacterViewModel(
     private val ownerId: UUID = JwtTokenProvider().userId
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(CreateCharacterUiState())
+    private val _uiState = MutableStateFlow(CreateCharacterUiState(isEdit = editId != null))
     val uiState: StateFlow<CreateCharacterUiState> = _uiState.asStateFlow()
+
+    init {
+        // Edit mode: pull the existing character so the form starts pre-filled.
+        if (editId != null) loadExisting(editId)
+    }
+
+    private fun loadExisting(id: UUID) {
+        _uiState.value = _uiState.value.copy(isPrefilling = true)
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                val character = getCharacterCall(id).result
+                _uiState.value = _uiState.value.copy(
+                    name = character.name,
+                    systemPrompt = character.systemPrompt,
+                    isPublic = character.isPublic ?: false,
+                    isPrefilling = false
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isPrefilling = false,
+                    errorMessage = e.message ?: "Failed to load character"
+                )
+            }
+        }
+    }
 
     // Creation progress so a retry after a failed image upload doesn't re-create
     // (and duplicate) the character.
@@ -94,7 +131,11 @@ class CreateCharacterViewModel(
         val state = _uiState.value
         if (state.isLoading) return
 
+        // When editing, new images attach to the existing character's id.
+        if (state.isEdit && editId != null) createdEntityId = editId
+
         val character = Character(
+            id = if (state.isEdit) editId else null,
             ownerId = ownerId,
             name = state.name.trim(),
             systemPrompt = state.systemPrompt.trim(),
@@ -105,10 +146,14 @@ class CreateCharacterViewModel(
 
         viewModelScope.launch(ioDispatcher) {
             try {
-                // The create endpoint returns no id, so the character must be
-                // created before its images can be attached.
                 if (!entityCreated) {
-                    createCharacterCall(character)
+                    if (state.isEdit && editId != null) {
+                        updateCharacterCall(editId, character)
+                    } else {
+                        // The create endpoint returns no id, so the character must be
+                        // created before its images can be attached.
+                        createCharacterCall(character)
+                    }
                     entityCreated = true
                 }
 
@@ -130,7 +175,8 @@ class CreateCharacterViewModel(
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    errorMessage = e.message ?: "Failed to create character"
+                    errorMessage = e.message ?: if (state.isEdit) "Failed to update character"
+                    else "Failed to create character"
                 )
             }
         }

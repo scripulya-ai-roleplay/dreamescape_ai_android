@@ -17,8 +17,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -46,12 +48,15 @@ import com.example.dreamescape_ai.ui.theme.ScripulyaText
  * backend's natural listing order) and keep streaming in as the user scrolls
  * down — see [DiscoveryViewModel.loadMoreRecent].
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiscoveryScreen(
     sections: List<FeedSection>,
     isLoading: Boolean,
+    isRefreshing: Boolean,
     errorMessage: String?,
     onRetry: () -> Unit,
+    onRefresh: () -> Unit,
     onStoryClick: (StoryItem) -> Unit,
     onOpenHistory: () -> Unit,
     recentHasMore: Boolean = false,
@@ -61,19 +66,28 @@ fun DiscoveryScreen(
 ) {
     val allEmpty = sections.none { it.stories.isNotEmpty() }
 
-    Box(modifier = modifier.fillMaxSize()) {
-        when {
-            isLoading && allEmpty -> LoadingState()
-            errorMessage != null && allEmpty -> ErrorState(errorMessage, onRetry)
-            allEmpty -> EmptyState()
-            else -> DiscoveryContent(
-                sections = sections,
-                onStoryClick = onStoryClick,
-                onOpenHistory = onOpenHistory,
-                recentHasMore = recentHasMore,
-                recentIsLoadingMore = recentIsLoadingMore,
-                onLoadMoreRecent = onLoadMoreRecent
-            )
+    // PullToRefreshBox installs the nested-scroll hook: dragging down while the
+    // inner LazyColumn is at the top reveals the descending spinner and fires
+    // onRefresh. Wrapping the whole box keeps it available in every state.
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = onRefresh,
+        modifier = modifier.fillMaxSize()
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            when {
+                isLoading && allEmpty -> LoadingState()
+                errorMessage != null && allEmpty -> ErrorState(errorMessage, onRetry)
+                allEmpty -> EmptyState()
+                else -> DiscoveryContent(
+                    sections = sections,
+                    onStoryClick = onStoryClick,
+                    onOpenHistory = onOpenHistory,
+                    recentHasMore = recentHasMore,
+                    recentIsLoadingMore = recentIsLoadingMore,
+                    onLoadMoreRecent = onLoadMoreRecent
+                )
+            }
         }
     }
 }

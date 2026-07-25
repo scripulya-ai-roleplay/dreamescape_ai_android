@@ -8,9 +8,11 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -62,6 +64,20 @@ fun ScripulyaApp(
 
     val discoveryState by discoveryViewModel.uiState.collectAsState()
 
+    // Returning to the Home tab reuses the cached feed if fresh (< CACHE_TTL_MS)
+    // or silently refetches; pull-to-refresh forces a refresh regardless. Tracked
+    // against the previous tab so it only fires on an actual non-Home -> Home move
+    // (never on first composition, which would double-fetch against the VM's init).
+    val previousTab = remember { mutableStateOf<ScripulyaTab?>(null) }
+    LaunchedEffect(selectedTab) {
+        if (selectedTab == ScripulyaTab.HOME &&
+            previousTab.value != null && previousTab.value != ScripulyaTab.HOME
+        ) {
+            discoveryViewModel.refreshIfStale()
+        }
+        previousTab.value = selectedTab
+    }
+
     Box(modifier = Modifier.fillMaxSize().nightSkyGradient()) {
         Scaffold(
             containerColor = Color.Transparent,
@@ -85,8 +101,10 @@ fun ScripulyaApp(
                         DiscoveryScreen(
                             sections = discoveryState.sections.filter { it.title in allowed },
                             isLoading = discoveryState.isLoading,
+                            isRefreshing = discoveryState.isRefreshing,
                             errorMessage = discoveryState.errorMessage,
                             onRetry = discoveryViewModel::loadDiscovery,
+                            onRefresh = discoveryViewModel::refresh,
                             onStoryClick = onStoryClick,
                             onOpenHistory = openHistory,
                             recentHasMore = discoveryState.recentHasMore,

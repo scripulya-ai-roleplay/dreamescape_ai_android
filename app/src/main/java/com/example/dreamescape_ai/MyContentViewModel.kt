@@ -18,6 +18,7 @@ import org.openapitools.client.models.ApiResponsePageMediaAssetDTO
 import org.openapitools.client.models.ApiResponsePageScene
 import org.openapitools.client.models.Character
 import org.openapitools.client.models.MediaEntityType
+import org.openapitools.client.models.ModelApiResponse
 import org.openapitools.client.models.Scene
 import java.util.UUID
 
@@ -69,6 +70,12 @@ class MyContentViewModel(
     },
     private val characterPortrait: (characterId: UUID) -> ApiResponsePageMediaAssetDTO = { id ->
         MediaApi().searchMediaApiV1MediaGet(entityType = MediaEntityType.character, entityId = id, limit = 1)
+    },
+    private val deleteScene: (sceneId: UUID) -> ModelApiResponse = { id ->
+        ScenesApi().deleteSceneApiV1ScenesSceneIdDelete(sceneId = id)
+    },
+    private val deleteCharacter: (characterId: UUID) -> ModelApiResponse = { id ->
+        CharactersApi().deleteCharacterApiV1CharactersCharacterIdDelete(characterId = id)
     },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
@@ -175,6 +182,40 @@ class MyContentViewModel(
                 if (it.id == cardId) it.copy(imageUrl = url, imageResolved = true) else it
             }
         )
+    }
+
+    /**
+     * Deletes one owned item. The card is removed optimistically so the list
+     * feels instant; if the backend call fails the card is put back in place so
+     * the user can see it wasn't deleted.
+     */
+    fun deleteItem(id: String) {
+        val entityId = runCatching { UUID.fromString(id) }.getOrNull() ?: return
+        val previous = _uiState.value.items
+        val originalIndex = previous.indexOfFirst { it.id == id }
+        if (originalIndex < 0) return
+        _uiState.value = _uiState.value.copy(items = previous.filterNot { it.id == id })
+
+        viewModelScope.launch(ioDispatcher) {
+            val ok = try {
+                when (mode) {
+                    OwnedMode.SCENES -> deleteScene(entityId)
+                    OwnedMode.CHARACTERS -> deleteCharacter(entityId)
+                }
+                true
+            } catch (_: Exception) {
+                false
+            }
+            if (!ok) {
+                // Restore the card at its original position.
+                _uiState.value = _uiState.value.copy(
+                    items = _uiState.value.items.toMutableList().apply {
+                        val insertAt = originalIndex.coerceAtMost(size)
+                        add(insertAt, previous[originalIndex])
+                    }
+                )
+            }
+        }
     }
 
     companion object {

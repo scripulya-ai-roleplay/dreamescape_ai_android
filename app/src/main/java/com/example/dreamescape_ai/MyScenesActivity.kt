@@ -53,6 +53,13 @@ class MyScenesActivity : ComponentActivity() {
                                 }
                             )
                         },
+                        onEdit = { card ->
+                            startActivity(
+                                Intent(this, CreateSceneActivity::class.java).apply {
+                                    putExtra(CreateSceneActivity.EXTRA_SCENE_ID, card.id)
+                                }
+                            )
+                        },
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
