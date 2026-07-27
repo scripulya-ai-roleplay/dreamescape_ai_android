@@ -22,7 +22,7 @@ import com.squareup.moshi.JsonClass
 /**
  * 
  *
- * Values: testing_mock,geminiMinus3MinusFlashMinusPreview,geminiMinus2Period5MinusPro,claudeMinusSonnetMinus4Minus20250514,claudeMinusHaikuMinus4Minus20250514,qwenMinusPlus,qwenMinusTurbo,qwenMinusMax,glmMinus5Period2,glmMinus4Period6,glmMinus4Period5
+ * Values: testing_mock,geminiMinus3MinusFlashMinusPreview,geminiMinus3Period1MinusProMinusPreview,claudeMinusSonnetMinus4Minus20250514,claudeMinusHaikuMinus4Minus20250514,qwenMinusPlus,qwenMinusTurbo,qwenMinusMax,glmMinus5Period2,glmMinus4Period6,glmMinus4Period5
  */
 
 @JsonClass(generateAdapter = false)
@@ -34,8 +34,8 @@ enum class LLMModelType(val value: kotlin.String) {
     @Json(name = "gemini-3-flash-preview")
     geminiMinus3MinusFlashMinusPreview("gemini-3-flash-preview"),
 
-    @Json(name = "gemini-2.5-pro")
-    geminiMinus2Period5MinusPro("gemini-2.5-pro"),
+    @Json(name = "gemini-3.1-pro-preview")
+    geminiMinus3Period1MinusProMinusPreview("gemini-3.1-pro-preview"),
 
     @Json(name = "claude-sonnet-4-20250514")
     claudeMinusSonnetMinus4Minus20250514("claude-sonnet-4-20250514"),

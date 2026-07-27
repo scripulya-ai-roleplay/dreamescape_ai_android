@@ -20,7 +20,7 @@ val LLMModelType.spec: ModelSpec
     get() = when (this) {
         LLMModelType.testing_mock -> ModelSpec(reasoning = false, caching = false, contextTokens = 8_192)
         LLMModelType.geminiMinus3MinusFlashMinusPreview -> ModelSpec(true, true, 1_000_000)
-        LLMModelType.geminiMinus2Period5MinusPro -> ModelSpec(true, true, 1_000_000)
+        LLMModelType.geminiMinus3Period1MinusProMinusPreview -> ModelSpec(true, true, 1_000_000)
         LLMModelType.claudeMinusSonnetMinus4Minus20250514 -> ModelSpec(true, true, 200_000)
         LLMModelType.claudeMinusHaikuMinus4Minus20250514 -> ModelSpec(true, true, 200_000)
         LLMModelType.qwenMinusPlus -> ModelSpec(false, false, 131_072)

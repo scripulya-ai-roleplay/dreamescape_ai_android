@@ -47,7 +47,7 @@ val LLMModelType.displayName: String
     get() = when (this) {
         LLMModelType.testing_mock -> "Mock"
         LLMModelType.geminiMinus3MinusFlashMinusPreview -> "Gemini 3 Flash"
-        LLMModelType.geminiMinus2Period5MinusPro -> "Gemini 2.5 Pro"
+        LLMModelType.geminiMinus3Period1MinusProMinusPreview -> "Gemini 3.1 Pro"
         LLMModelType.claudeMinusSonnetMinus4Minus20250514 -> "Claude Sonnet 4"
         LLMModelType.claudeMinusHaikuMinus4Minus20250514 -> "Claude Haiku 4"
         LLMModelType.qwenMinusPlus -> "Qwen Plus"
