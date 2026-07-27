@@ -6,6 +6,12 @@ import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,6 +28,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
@@ -38,8 +45,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -253,7 +264,10 @@ fun ChatScreen(
                                             message = uiState.streamingText,
                                             chatId = chatId,
                                             role = ChatRoles.model
-                                        )
+                                        ),
+                                        // Live chain-of-thought accumulated from `thinking`
+                                        // SSE frames; shown behind the collapsible disclosure.
+                                        thoughts = uiState.streamingThinking
                                     )
                                 }
                             }
@@ -417,12 +431,17 @@ fun InitialMessageCarouselItem(
 }
 
 @Composable
-fun MessageItem(message: Message) {
+fun MessageItem(message: Message, thoughts: String? = null) {
     val isUser = message.role == ChatRoles.user
     // Model replies arrive as a fenced {"text": ...} envelope; unwrap it to plain
     // prose. User messages render verbatim. Both go through the Markdown renderer,
     // whose custom components then highlight "dialogue" / (asides) and grey *narration*.
     val displayText = if (isUser) message.message else extractModelMessageText(message.message)
+    // Live chain-of-thought is passed in for the in-flight streaming bubble; persisted
+    // messages carry it as `reasoning`. A non-blank value from either source surfaces the
+    // collapsible disclosure at the top of the bubble (collapsed by default).
+    val reasoning = thoughts?.takeIf { it.isNotBlank() }
+        ?: message.reasoning?.takeIf { it.isNotBlank() }
 
     // Full-width message with a darkened transparent background so the scene
     // backdrop still shows through; authorship is carried by the You/Model label.
@@ -438,6 +457,10 @@ fun MessageItem(message: Message) {
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold
         )
+        if (reasoning != null) {
+            Spacer(modifier = Modifier.height(4.dp))
+            ThoughtsDisclosure(reasoning)
+        }
         Spacer(modifier = Modifier.height(2.dp))
         Markdown(
             content = displayText,
@@ -467,8 +490,60 @@ fun MessageItem(message: Message) {
     }
 }
 
+/**
+ * The model's chain-of-thought, hidden by default behind a disclosure at the top of a
+ * message. A chevron (▶) toggles open/closed; tapping it expands to render the thoughts
+ * (muted, to read as meta-commentary rather than in-character prose) and tapping again
+ * collapses them back inside the message.
+ */
+@Composable
+private fun ThoughtsDisclosure(thoughts: String, modifier: Modifier = Modifier) {
+    var expanded by remember { mutableStateOf(false) }
+    val rotation by animateFloatAsState(
+        targetValue = if (expanded) 90f else 0f,
+        label = "thoughts-chevron"
+    )
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = if (expanded) "Hide thoughts" else "Show thoughts",
+                tint = ThoughtsColor,
+                modifier = Modifier.rotate(rotation)
+            )
+            Text(
+                text = "Thoughts",
+                color = ThoughtsColor,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            Markdown(
+                content = thoughts,
+                colors = markdownColor(text = ThoughtsColor),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp)
+            )
+        }
+    }
+}
+
 /** Spoken dialogue — text inside `"…"` or `(…)`. */
 private val DialogueColor = Color(0xFFD97918)
+
+/** Muted tone for the model's chain-of-thought, so it reads as meta-commentary. */
+private val ThoughtsColor = Color.White.copy(alpha = 0.6f)
 
 /** Narration / stage directions — text inside `*…*` (markdown emphasis). */
 private val NarrationColor = Color(0xFFB0B0B0)

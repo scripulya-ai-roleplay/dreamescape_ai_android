@@ -63,7 +63,11 @@ data class ChatUiState(
     // Shown as a transient bubble that is replaced by the authoritative message once
     // the terminal "message" event lands (or cleared on stream close). Empty unless a
     // generation is actively streaming.
-    val streamingText: String = ""
+    val streamingText: String = "",
+    // Incrementally-accumulated model "thoughts" (chain-of-thought) from `thinking`
+    // SSE frames. Surfaced behind a collapsible disclosure on the streaming bubble, and
+    // replaced by the persisted message's `reasoning` once the authoritative message lands.
+    val streamingThinking: String = ""
 )
 
 class ChatViewModel(
@@ -289,6 +293,9 @@ class ChatViewModel(
     // arrive (bursty). A separate reveal pump drains it word-by-word at a fixed
     // cadence so the bubble fills one word at a time regardless of token batching.
     private var streamingRaw = StringBuffer()
+    // Accumulates `thinking` chunks in parallel to [streamingRaw]; surfaced verbatim
+    // (no word-by-word reveal) as [ChatUiState.streamingThinking].
+    private var thinkingRaw = StringBuffer()
     private var revealedLength = 0
     @Volatile private var streamComplete = false
     private val streamFinalized = AtomicBoolean(false)
@@ -344,6 +351,9 @@ class ChatViewModel(
      *  - `token` — a chunk of the reply as it generates; appended to the raw buffer.
      *    The reveal pump uncovers it one word at a time. On the first token the
      *    "thinking" spinner hands off to the growing bubble.
+     *  - `thinking` — a chunk of the model's chain-of-thought (only when the chat has
+     *    reasoning on). Same `{"text": ...}` shape as `token`; accumulated verbatim into
+     *    the thinking buffer and surfaced behind the message's collapsible disclosure.
      *  - `generation_start` / `generation_done` — lifecycle markers; the token
      *    frames and the terminal `message` drive the UI, so these are no-ops here.
      *  - `message` — the authoritative persisted message. On connect the latest
@@ -442,6 +452,14 @@ class ChatViewModel(
                 stopThinking()
                 StreamAction.CONTINUE
             }
+            // The model's chain-of-thought, streamed before/alongside the answer tokens.
+            // Same {"text": ...} shape as `token`; accumulated verbatim into the thinking
+            // buffer (no word-by-word reveal) and surfaced behind the message's disclosure.
+            "thinking" -> {
+                parseTokenText(payload)?.let { chunk -> if (chunk.isNotEmpty()) thinkingRaw.append(chunk) }
+                _uiState.value = _uiState.value.copy(streamingThinking = thinkingRaw.toString())
+                StreamAction.CONTINUE
+            }
             "generation_start", "generation_done" -> StreamAction.CONTINUE
             else -> when {
                 !isTerminalReply(payload, knownIds, pendingId) -> StreamAction.CONTINUE
@@ -466,11 +484,12 @@ class ChatViewModel(
         revealJob?.cancel()
         revealJob = null
         streamingRaw = StringBuffer()
+        thinkingRaw = StringBuffer()
         revealedLength = 0
         streamComplete = false
         streamFinalized.set(false)
-        if (_uiState.value.streamingText.isNotEmpty()) {
-            _uiState.value = _uiState.value.copy(streamingText = "")
+        if (_uiState.value.streamingText.isNotEmpty() || _uiState.value.streamingThinking.isNotEmpty()) {
+            _uiState.value = _uiState.value.copy(streamingText = "", streamingThinking = "")
         }
     }
 
@@ -547,7 +566,8 @@ class ChatViewModel(
                 // streamed text is kept as the best available rendering of the reply.
                 _uiState.value = _uiState.value.copy(
                     messages = response.result.items.sortedChronologically(),
-                    streamingText = ""
+                    streamingText = "",
+                    streamingThinking = ""
                 )
             } catch (_: Exception) {
                 // Best-effort refresh; the user can reopen the chat to retry.

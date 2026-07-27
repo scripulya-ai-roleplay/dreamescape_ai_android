@@ -406,6 +406,27 @@ class ChatViewModelTest {
     }
 
     @Test
+    fun `thinking frames accumulate into streamingThinking without touching the answer`() {
+        val viewModel = createViewModel()
+
+        // Same {"text": ...} shape as a token frame; reasoning chunks stream verbatim.
+        assertEquals(
+            StreamAction.CONTINUE,
+            viewModel.handleStreamFrame("thinking", tokenFrame("Let me consider"), emptySet(), null)
+        )
+        assertEquals("Let me consider", viewModel.uiState.value.streamingThinking)
+        // Thinking must not leak into the answer buffer / reveal.
+        assertEquals("", viewModel.uiState.value.streamingText)
+
+        // Further thinking chunks append (no word-by-word reveal — surfaced as-is).
+        assertEquals(
+            StreamAction.CONTINUE,
+            viewModel.handleStreamFrame("thinking", tokenFrame(" the options"), emptySet(), null)
+        )
+        assertEquals("Let me consider the options", viewModel.uiState.value.streamingThinking)
+    }
+
+    @Test
     fun `a terminal message with streamed text defers the swap until the reveal catches up`() = runTest {
         val pendingId = UUID.fromString("00000000-0000-0000-0000-0000000000ee")
         val viewModel = createViewModel()
