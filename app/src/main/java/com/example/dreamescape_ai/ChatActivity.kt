@@ -333,6 +333,36 @@ fun ChatScreen(
                 )
             }
 
+            // Quick-action toolbar above the input bar: Continue prompts the model to
+            // keep going (posted as a normal message that triggers a streamed reply),
+            // Erase removes the most recent message. Both are inert while a generation
+            // is in flight and only shown once the thread has at least one message.
+            if (uiState.messages.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.Black.copy(alpha = 0.45f))
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(
+                        onClick = viewModel::continueConversation,
+                        enabled = !uiState.isSending
+                    ) {
+                        Text("Continue", color = Color.White)
+                    }
+                    TextButton(
+                        onClick = {
+                            uiState.messages.lastOrNull()?.id?.let { viewModel.deleteMessage(it) }
+                        },
+                        enabled = !uiState.isSending
+                    ) {
+                        Text("Erase", color = Color.White)
+                    }
+                }
+            }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

@@ -232,10 +232,28 @@ class ChatViewModel(
         if (text.isEmpty()) {
             return
         }
+        _uiState.value = _uiState.value.copy(input = "")
+        send(text)
+    }
 
+    /**
+     * Asks the model to keep going: posts a "Continue" trigger as a normal user
+     * message (so it shows in the thread) which produces a streamed model reply.
+     * There's no dedicated backend endpoint, so this reuses the ordinary send path.
+     */
+    fun continueConversation() {
+        if (_uiState.value.isSending) return
+        send(CONTINUE_PROMPT)
+    }
+
+    /**
+     * Shared send path for [sendMessage] and [continueConversation]: marks the thread
+     * as sending, seeds the opening greeting if none is chosen yet, posts [text],
+     * reloads, and waits for the streamed model reply.
+     */
+    private fun send(text: String) {
         _uiState.value = _uiState.value.copy(
             isSending = true,
-            input = "",
             errorMessage = null,
             streamingText = ""
         )
@@ -630,6 +648,8 @@ class ChatViewModel(
     private companion object {
         const val THINKING_TICK_MS = 1000L
         const val WORD_REVEAL_MS = 100L
+        // The user message posted by the Continue quick-action to prompt another reply.
+        const val CONTINUE_PROMPT = "Continue"
     }
 }
 
