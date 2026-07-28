@@ -22,9 +22,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
@@ -106,6 +110,9 @@ class ChatActivity : ComponentActivity() {
             Dreamescape_aiTheme {
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
+                    // The bottom inset (nav bar ∪ IME) is consumed once inside ChatScreen,
+                    // so don't let the Scaffold also pad the body for the nav bar.
+                    contentWindowInsets = WindowInsets(0, 0, 0, 0),
                     topBar = {
                         TopAppBar(
                             title = { Text(chatTitle) },
@@ -199,7 +206,15 @@ fun ChatScreen(
             )
         }
 
-        Column(modifier = Modifier.fillMaxSize().imePadding()) {
+        // A single bottom-inset source — max(navigation bar, IME) — so the input
+        // dock lifts flush above the keyboard (no gap) and sits above the gesture/nav
+        // bar when it's closed. Combined with adjustResize in the manifest, this is the
+        // one place the IME inset is consumed, so it never double-lifts.
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
+        ) {
             if (uiState.errorMessage != null) {
                 Text(
                     text = uiState.errorMessage!!,

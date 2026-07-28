@@ -19,7 +19,8 @@
                 android:name=".ChatActivity"
                 android:exported="false"
                 android:label="Chat"
-                android:theme="@style/Theme.Dreamescape_ai"/>
+                android:theme="@style/Theme.Dreamescape_ai"
+                android:windowSoftInputMode="adjustNothing"/>
         <activity
                 android:name=".CreateChatActivity"
                 android:exported="false"
@@ -49,7 +50,8 @@
                 android:name=".CreateCharacterActivity"
                 android:exported="false"
                 android:label="Create Character"
-                android:theme="@style/Theme.Dreamescape_ai"/>
+                android:theme="@style/Theme.Dreamescape_ai"
+                android:windowSoftInputMode="adjustNothing"/>
         <activity
                 android:name=".CharacterPreviewActivity"
                 android:exported="false"
