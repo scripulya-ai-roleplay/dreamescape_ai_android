@@ -81,6 +81,11 @@
                 android:label="My Scenes"
                 android:theme="@style/Theme.Dreamescape_ai"/>
         <activity
+                android:name=".AdvancedSettingsActivity"
+                android:exported="false"
+                android:label="Advanced Settings"
+                android:theme="@style/Theme.Dreamescape_ai"/>
+        <activity
                 android:name=".MainActivity"
                 android:exported="true"
                 android:label="@string/app_name"

@@ -4,6 +4,7 @@ import android.app.Application
 import coil.Coil
 import coil.ImageLoader
 import com.example.dreamescape_ai.auth.JwtAuthInterceptor
+import com.example.dreamescape_ai.data.BackendConfig
 import okhttp3.OkHttpClient
 import org.openapitools.client.infrastructure.ApiClient
 
@@ -11,8 +12,10 @@ import org.openapitools.client.infrastructure.ApiClient
  * Application entry point.
  *
  * Configures the generated OpenAPI client before any API call is made:
- *  * the base URL is pointed at the host backend (0.0.0.0:8000), reachable from
- *    the Android emulator through the special alias 10.0.2.2;
+ *  * the base URL is loaded from [BackendConfig] (user-editable in Advanced
+ *    settings, defaulting to the host backend 0.0.0.0:8000 reachable from the
+ *    Android emulator through the alias 10.0.2.2) and pushed into the
+ *    `org.openapitools.client.baseUrl` system property the generated clients read;
  *  * a [JwtAuthInterceptor] is installed so every request carries a JWT Bearer
  *    token, satisfying the backend's HTTP Bearer security scheme.
  *
@@ -25,7 +28,10 @@ class DreamescapeApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        System.setProperty(ApiClient.baseUrlKey, BACKEND_BASE_URL)
+        // Synchronously bootstrap the base URL before any API call can run.
+        // Each generated API class reads the property lazily once (cached), so
+        // it must be correct from the very first call.
+        applyBaseUrl(BackendConfig.readBaseUrlBlocking(this))
         registerJwtAuthentication()
         configureImageLoader()
     }
@@ -62,11 +68,28 @@ class DreamescapeApplication : Application() {
 
     companion object {
         /**
-         * Base URL of the backend API as seen from the Android emulator.
+         * Live base URL of the backend API. Mutable so the non-generated
+         * consumers ([MediaUploader] and the chat SSE stream) pick up a runtime
+         * change immediately; the generated API clients read it through the
+         * system property set by [applyBaseUrl] (and need a restart to switch,
+         * because they cache the value lazily).
          *
-         * 10.0.2.2 is the emulator alias that maps to the host machine's
-         * loopback interface (0.0.0.0 / localhost / 127.0.0.1).
+         * Read by reference (no qualifier change needed) wherever the old
+         * `const` was used. Defaults to the emulator alias 10.0.2.2 → host loopback.
          */
-        const val BACKEND_BASE_URL: String = "http://10.0.2.2:8000"
+        @Volatile
+        var BACKEND_BASE_URL: String = BackendConfig.DEFAULT_BACKEND_BASE_URL
+
+        /**
+         * Sets the active backend [url] everywhere: the system property the
+         * generated clients read, and the [BACKEND_BASE_URL] field the direct
+         * consumers read. Called once at startup ([onCreate]) and again whenever
+         * the user changes the address in Advanced settings.
+         */
+        fun applyBaseUrl(url: String) {
+            val normalized = url.trim().trimEnd('/')
+            BACKEND_BASE_URL = normalized
+            System.setProperty(ApiClient.baseUrlKey, normalized)
+        }
     }
 }

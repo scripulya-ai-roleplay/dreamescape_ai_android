@@ -1,5 +1,6 @@
 package com.example.dreamescape_ai
 
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -18,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.dreamescape_ai.model.HistoryItem
@@ -61,6 +63,7 @@ fun ScripulyaApp(
     var selectedTab by rememberSaveable { mutableStateOf(ScripulyaTab.HOME) }
     var showHistory by rememberSaveable { mutableStateOf(false) }
     val openHistory = { showHistory = true }
+    val context = LocalContext.current
 
     val discoveryState by discoveryViewModel.uiState.collectAsState()
 
@@ -132,7 +135,12 @@ fun ScripulyaApp(
                         profile = profile,
                         onChangeCharacter = onChangeCharacter,
                         onOpenHistory = openHistory,
-                        onSettings = {},
+                        onSettings = {
+                            // Profile's settings gear → Advanced settings (backend address, etc.).
+                            context.startActivity(
+                                Intent(context, AdvancedSettingsActivity::class.java)
+                            )
+                        },
                         onEditProfile = {}
                     )
                 }
