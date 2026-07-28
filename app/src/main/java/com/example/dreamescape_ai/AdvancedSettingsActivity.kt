@@ -103,16 +103,37 @@ private fun AdvancedSettingsScreen(modifier: Modifier = Modifier) {
     var loaded by remember { mutableStateOf(BackendConfig.DEFAULT_BACKEND_BASE_URL) }
     var showRestartDialog by remember { mutableStateOf(false) }
 
-    // Seed the field once with the persisted URL.
+    var jwtText by remember { mutableStateOf(BackendConfig.DEFAULT_JWT_SECRET) }
+    var jwtLoaded by remember { mutableStateOf(BackendConfig.DEFAULT_JWT_SECRET) }
+
+    var minioText by remember { mutableStateOf(BackendConfig.DEFAULT_MINIO_BASE_URL) }
+    var minioLoaded by remember { mutableStateOf(BackendConfig.DEFAULT_MINIO_BASE_URL) }
+
+    // Seed the fields once with the persisted values.
     LaunchedEffect(Unit) {
-        val persisted = BackendConfig.baseUrlFlow(context.applicationContext).first()
-        loaded = persisted
-        text = persisted
+        val persistedUrl = BackendConfig.baseUrlFlow(context.applicationContext).first()
+        loaded = persistedUrl
+        text = persistedUrl
+        val persistedSecret = BackendConfig.jwtSecretFlow(context.applicationContext).first()
+        jwtLoaded = persistedSecret
+        jwtText = persistedSecret
+        val persistedMinio = BackendConfig.minioBaseUrlFlow(context.applicationContext).first()
+        minioLoaded = persistedMinio
+        minioText = persistedMinio
     }
 
     val normalized = text.trim().trimEnd('/')
     val isValid = isValidBackendUrl(normalized)
     val canSave = isValid && normalized != loaded
+
+    val jwtNormalized = jwtText.trim()
+    val jwtValid = jwtNormalized.isNotEmpty()
+    val jwtCanSave = jwtValid && jwtNormalized != jwtLoaded
+
+    // Blank is valid (disables the override); otherwise must be a full http(s)://host.
+    val minioNormalized = minioText.trim().trimEnd('/')
+    val minioValid = minioNormalized.isEmpty() || isValidBackendUrl(minioNormalized)
+    val minioCanSave = minioValid && minioNormalized != minioLoaded
 
     Column(
         modifier = modifier
@@ -189,6 +210,143 @@ private fun AdvancedSettingsScreen(modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.bodySmall
         )
 
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .scripPanel(radius = 20.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "MinIO address",
+                color = ScripulyaText,
+                style = MaterialTheme.typography.titleMedium
+            )
+            OutlinedTextField(
+                value = minioText,
+                onValueChange = { minioText = it },
+                label = { Text("Image storage URL") },
+                placeholder = { Text("http://10.66.66.2:9000") },
+                singleLine = true,
+                isError = minioText.isNotEmpty() && !minioValid,
+                supportingText = {
+                    Text(
+                        if (minioText.isNotEmpty() && !minioValid) {
+                            "Enter a full http(s):// address, e.g. http://10.66.66.2:9000"
+                        } else {
+                            "Where the device can reach MinIO (scheme + host + port). " +
+                                "Leave blank to use the URLs the backend returns."
+                        }
+                    )
+                },
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Uri,
+                    imeAction = ImeAction.Done
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            BackendConfig.setMinioBaseUrl(context.applicationContext, minioNormalized)
+                            DreamescapeApplication.applyMinioBaseUrl(minioNormalized)
+                            minioText = minioNormalized
+                            minioLoaded = minioNormalized
+                        }
+                    },
+                    enabled = minioCanSave,
+                    modifier = Modifier.weight(1f)
+                ) { Text("Save") }
+                OutlinedButton(
+                    onClick = { minioText = BackendConfig.DEFAULT_MINIO_BASE_URL },
+                    enabled = minioNormalized != BackendConfig.DEFAULT_MINIO_BASE_URL,
+                    modifier = Modifier.weight(1f)
+                ) { Text("Reset to default") }
+            }
+        }
+
+        Text(
+            text = "Image URLs come from the backend pointing at its own MinIO host, " +
+                "which may be unreachable from your device (e.g. under a VPN). Setting " +
+                "this rewrites only the host of each image URL — the path and any " +
+                "presigned signature are preserved. Applies to images immediately, no " +
+                "restart needed.",
+            color = ScripulyaTextDim,
+            style = MaterialTheme.typography.bodySmall
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .scripPanel(radius = 20.dp)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "JWT signing secret",
+                color = ScripulyaText,
+                style = MaterialTheme.typography.titleMedium
+            )
+            OutlinedTextField(
+                value = jwtText,
+                onValueChange = { jwtText = it },
+                label = { Text("Secret key") },
+                placeholder = { Text(BackendConfig.DEFAULT_JWT_SECRET) },
+                singleLine = true,
+                isError = jwtText.isNotEmpty() && !jwtValid,
+                supportingText = {
+                    Text(
+                        if (jwtText.isNotEmpty() && !jwtValid) {
+                            "Secret cannot be empty."
+                        } else {
+                            "Shared HMAC secret used to self-sign each token. Must match the backend's JWT_SECRET_KEY."
+                        }
+                    )
+                },
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            BackendConfig.setJwtSecret(context.applicationContext, jwtNormalized)
+                            jwtText = jwtNormalized
+                            jwtLoaded = jwtNormalized
+                            showRestartDialog = true
+                        }
+                    },
+                    enabled = jwtCanSave,
+                    modifier = Modifier.weight(1f)
+                ) { Text("Save") }
+                OutlinedButton(
+                    onClick = { jwtText = BackendConfig.DEFAULT_JWT_SECRET },
+                    enabled = jwtNormalized != BackendConfig.DEFAULT_JWT_SECRET,
+                    modifier = Modifier.weight(1f)
+                ) { Text("Reset to default") }
+            }
+        }
+
+        Text(
+            text = "Every request self-signs a fresh token with this secret. If it " +
+                "doesn't match the backend's JWT_SECRET_KEY, requests fail with 401. " +
+                "A change takes effect after restart.",
+            color = ScripulyaTextDim,
+            style = MaterialTheme.typography.bodySmall
+        )
+
         Spacer(Modifier.height(8.dp))
     }
 
@@ -200,7 +358,7 @@ private fun AdvancedSettingsScreen(modifier: Modifier = Modifier) {
             },
             title = { Text("Restart to apply") },
             text = {
-                Text("Backend address updated. Restart the app so all requests use it.")
+                Text("Advanced settings updated. Restart the app so all changes take full effect.")
             },
             confirmButton = {
                 TextButton(onClick = { restartApp(context) }) {

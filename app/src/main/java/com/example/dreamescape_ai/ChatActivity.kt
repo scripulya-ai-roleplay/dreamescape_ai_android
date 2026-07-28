@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -41,6 +42,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -166,6 +171,11 @@ fun ChatScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    // The message currently open in the Edit dialog, or the one awaiting delete
+    // confirmation. Both are set by tapping a message bubble.
+    var editingMessage by remember { mutableStateOf<Message?>(null) }
+    var pendingDelete by remember { mutableStateOf<Message?>(null) }
+
     LaunchedEffect(Unit) {
         viewModel.loadMessages()
         viewModel.loadChat()
@@ -189,7 +199,7 @@ fun ChatScreen(
             )
         }
 
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize().imePadding()) {
             if (uiState.errorMessage != null) {
                 Text(
                     text = uiState.errorMessage!!,
@@ -229,7 +239,11 @@ fun ChatScreen(
                                 }
                             }
                             itemsIndexed(uiState.messages.asReversed()) { index, message ->
-                                MessageItem(message = message)
+                                MessageItem(
+                                    message = message,
+                                    onEdit = { m -> editingMessage = m },
+                                    onDelete = { m -> pendingDelete = m }
+                                )
                                 if (index < uiState.messages.lastIndex) {
                                     HorizontalDivider(
                                         color = Color.White.copy(alpha = 0.15f),
@@ -272,7 +286,11 @@ fun ChatScreen(
                                 }
                             }
                             itemsIndexed(uiState.messages.asReversed()) { index, message ->
-                                MessageItem(message = message)
+                                MessageItem(
+                                    message = message,
+                                    onEdit = { m -> editingMessage = m },
+                                    onDelete = { m -> pendingDelete = m }
+                                )
                                 if (index < uiState.messages.lastIndex) {
                                     HorizontalDivider(
                                         color = Color.White.copy(alpha = 0.15f),
@@ -346,6 +364,45 @@ fun ChatScreen(
                     }
                 }
             }
+        }
+
+        // Edit dialog: pre-filled with the bubble's visible text (unwrapped for model
+        // replies), saving plain prose back via the ViewModel.
+        editingMessage?.let { message ->
+            EditMessageDialog(
+                initialText = if (message.role == ChatRoles.user) {
+                    message.message
+                } else {
+                    extractModelMessageText(message.message)
+                },
+                onConfirm = { newText ->
+                    val id = message.id
+                    editingMessage = null
+                    if (id != null) viewModel.editMessage(id, newText)
+                },
+                onDismiss = { editingMessage = null }
+            )
+        }
+
+        // Delete is irreversible on the backend — confirm before sending.
+        pendingDelete?.let { message ->
+            AlertDialog(
+                onDismissRequest = { pendingDelete = null },
+                title = { Text("Delete message") },
+                text = { Text("Delete this message? This can't be undone.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val id = message.id
+                        pendingDelete = null
+                        if (id != null) viewModel.deleteMessage(id)
+                    }) {
+                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingDelete = null }) { Text("Cancel") }
+                }
+            )
         }
     }
 }
@@ -431,7 +488,12 @@ fun InitialMessageCarouselItem(
 }
 
 @Composable
-fun MessageItem(message: Message, thoughts: String? = null) {
+fun MessageItem(
+    message: Message,
+    thoughts: String? = null,
+    onEdit: ((Message) -> Unit)? = null,
+    onDelete: ((Message) -> Unit)? = null
+) {
     val isUser = message.role == ChatRoles.user
     // Model replies arrive as a fenced {"text": ...} envelope; unwrap it to plain
     // prose. User messages render verbatim. Both go through the Markdown renderer,
@@ -443,12 +505,19 @@ fun MessageItem(message: Message, thoughts: String? = null) {
     val reasoning = thoughts?.takeIf { it.isNotBlank() }
         ?: message.reasoning?.takeIf { it.isNotBlank() }
 
+    // Only persisted messages (those with an id) can be edited/deleted; the in-flight
+    // streaming draft passes no callbacks and stays non-interactive.
+    val canInteract = onEdit != null && onDelete != null && message.id != null
+    var menuExpanded by remember { mutableStateOf(false) }
+
     // Full-width message with a darkened transparent background so the scene
     // backdrop still shows through; authorship is carried by the You/Model label.
+    // Tapping a bubble opens the Edit/Delete menu anchored to it.
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color.Black.copy(alpha = 0.45f))
+            .then(if (canInteract) Modifier.clickable { menuExpanded = true } else Modifier)
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Text(
@@ -487,7 +556,69 @@ fun MessageItem(message: Message, thoughts: String? = null) {
                 style = MaterialTheme.typography.labelSmall
             )
         }
+
+        if (canInteract) {
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = { menuExpanded = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Edit") },
+                    onClick = {
+                        menuExpanded = false
+                        onEdit?.invoke(message)
+                    }
+                )
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = "Delete",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    },
+                    onClick = {
+                        menuExpanded = false
+                        onDelete?.invoke(message)
+                    }
+                )
+            }
+        }
     }
+}
+
+/**
+ * Modal editor for a single message. Pre-filled with the bubble's visible text and
+ * saves the trimmed result via [onConfirm] (which routes to the ViewModel); the field
+ * grows with the content so long messages stay editable.
+ */
+@Composable
+private fun EditMessageDialog(
+    initialText: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var text by remember { mutableStateOf(initialText) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit message") },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 3
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(text) },
+                enabled = text.isNotBlank()
+            ) { Text("Save") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }
 
 /**

@@ -26,6 +26,7 @@ import org.openapitools.client.models.ApiResponseChat
 import org.openapitools.client.models.ApiResponseListInitialMessage
 import org.openapitools.client.models.ApiResponseMessage
 import org.openapitools.client.models.BodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost
+import org.openapitools.client.models.BodyUpdateMessageApiV1MessagesMessageIdPut
 import org.openapitools.client.models.InitialMessage
 import org.openapitools.client.models.ApiResponsePageMediaAssetDTO
 import org.openapitools.client.models.ApiResponsePageMessage
@@ -90,6 +91,19 @@ class ChatViewModel(
     },
     private val sendMessageCall: (SendMessageRequest) -> ApiResponseMessage = { dto ->
         MessagesApi().createMessageApiV1MessagesPost(dto)
+    },
+    // Replaces a stored message's text in place (no regeneration). User messages hold
+    // plain prose; model replies hold a {"text": ...} envelope — the editor saves the
+    // plain text back, so an edited model reply loses its envelope and renders verbatim.
+    private val updateMessageCall: (UUID, String) -> ModelApiResponse = { id, text ->
+        MessagesApi().updateMessageApiV1MessagesMessageIdPut(
+            messageId = id,
+            bodyUpdateMessageApiV1MessagesMessageIdPut =
+            BodyUpdateMessageApiV1MessagesMessageIdPut(updatedText = text)
+        )
+    },
+    private val deleteMessageCall: (UUID) -> ModelApiResponse = { id ->
+        MessagesApi().deleteMessageApiV1MessagesMessageIdDelete(messageId = id)
     },
     // The scene's opening greetings, shown as a carousel until one is chosen.
     private val getSceneInitialMessagesCall: (UUID) -> ApiResponseListInitialMessage = { sceneId ->
@@ -280,6 +294,44 @@ class ChatViewModel(
                     isSending = false,
                     isChoosingInitialMessage = false,
                     errorMessage = e.message ?: "Failed to send message"
+                )
+            }
+        }
+    }
+
+    /** Replaces a stored message's text with [newText] (plain prose) and reloads. */
+    fun editMessage(messageId: UUID, newText: String) {
+        val text = newText.trim()
+        if (text.isEmpty()) return
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                updateMessageCall(messageId, text)
+                val response = loadMessagesCall(chatId)
+                _uiState.value = _uiState.value.copy(
+                    messages = response.result.items.sortedChronologically(),
+                    errorMessage = null
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = e.message ?: "Failed to edit message"
+                )
+            }
+        }
+    }
+
+    /** Permanently removes a message and reloads the thread. */
+    fun deleteMessage(messageId: UUID) {
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                deleteMessageCall(messageId)
+                val response = loadMessagesCall(chatId)
+                _uiState.value = _uiState.value.copy(
+                    messages = response.result.items.sortedChronologically(),
+                    errorMessage = null
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = e.message ?: "Failed to delete message"
                 )
             }
         }

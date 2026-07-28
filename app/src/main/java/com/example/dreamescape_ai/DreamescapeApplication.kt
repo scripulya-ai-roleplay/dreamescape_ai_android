@@ -4,7 +4,9 @@ import android.app.Application
 import coil.Coil
 import coil.ImageLoader
 import com.example.dreamescape_ai.auth.JwtAuthInterceptor
+import com.example.dreamescape_ai.auth.JwtTokenProvider
 import com.example.dreamescape_ai.data.BackendConfig
+import com.example.dreamescape_ai.data.MinioHostInterceptor
 import okhttp3.OkHttpClient
 import org.openapitools.client.infrastructure.ApiClient
 
@@ -17,7 +19,8 @@ import org.openapitools.client.infrastructure.ApiClient
  *    Android emulator through the alias 10.0.2.2) and pushed into the
  *    `org.openapitools.client.baseUrl` system property the generated clients read;
  *  * a [JwtAuthInterceptor] is installed so every request carries a JWT Bearer
- *    token, satisfying the backend's HTTP Bearer security scheme.
+ *    token (signed with the secret configured in Advanced settings), satisfying
+ *    the backend's HTTP Bearer security scheme.
  *
  * Coil's shared [ImageLoader] uses a *plain* OkHttp client (no JWT interceptor):
  * media URLs are MinIO presigned/public URLs, and adding an Authorization header
@@ -32,6 +35,7 @@ class DreamescapeApplication : Application() {
         // Each generated API class reads the property lazily once (cached), so
         // it must be correct from the very first call.
         applyBaseUrl(BackendConfig.readBaseUrlBlocking(this))
+        applyMinioBaseUrl(BackendConfig.readMinioBaseUrlBlocking(this))
         registerJwtAuthentication()
         configureImageLoader()
     }
@@ -43,11 +47,16 @@ class DreamescapeApplication : Application() {
      * It must be added before [ApiClient.defaultClient] is first built, which
      * happens on the first API call and therefore always after [onCreate]. The
      * registration is idempotent to stay safe if the process is reused.
+     *
+     * The token provider is built with the JWT secret persisted in Advanced
+     * settings ([BackendConfig.readJwtSecretBlocking]), defaulting to the dev
+     * secret when unset; changing it needs a process restart.
      */
     private fun registerJwtAuthentication() {
         val alreadyRegistered = ApiClient.builder.interceptors().any { it is JwtAuthInterceptor }
         if (!alreadyRegistered) {
-            ApiClient.builder.addInterceptor(JwtAuthInterceptor())
+            val secret = BackendConfig.readJwtSecretBlocking(this)
+            ApiClient.builder.addInterceptor(JwtAuthInterceptor(JwtTokenProvider(secretKey = secret)))
         }
     }
 
@@ -57,11 +66,20 @@ class DreamescapeApplication : Application() {
      * or public URLs; a presigned URL carries its signature in the query string,
      * and MinIO rejects the request (HTTP 400) if an `Authorization` header is
      * also present. So image requests must carry no Authorization header.
+     *
+     * A [MinioHostInterceptor] is added so that, when the user has set a MinIO
+     * override in Advanced settings, image URLs are retargeted at the reachable
+     * address (e.g. over a VPN). It reads [MINIO_BASE_URL] live, so a change
+     * applies to the next image fetch with no restart.
      */
     private fun configureImageLoader() {
         Coil.setImageLoader(
             ImageLoader.Builder(this)
-                .okHttpClient { OkHttpClient.Builder().build() }
+                .okHttpClient {
+                    OkHttpClient.Builder()
+                        .addInterceptor(MinioHostInterceptor { MINIO_BASE_URL })
+                        .build()
+                }
                 .build()
         )
     }
@@ -90,6 +108,20 @@ class DreamescapeApplication : Application() {
             val normalized = url.trim().trimEnd('/')
             BACKEND_BASE_URL = normalized
             System.setProperty(ApiClient.baseUrlKey, normalized)
+        }
+
+        /**
+         * Live override origin for MinIO/image URLs, or "" to use the URLs the
+         * backend returns verbatim. Read at intercept-time by Coil's
+         * [MinioHostInterceptor], so a change from Advanced settings takes effect
+         * on the next image request with **no** restart.
+         */
+        @Volatile
+        var MINIO_BASE_URL: String = BackendConfig.DEFAULT_MINIO_BASE_URL
+
+        /** Pushes the MinIO override [url] live; blank disables the override. */
+        fun applyMinioBaseUrl(url: String) {
+            MINIO_BASE_URL = url.trim().trimEnd('/')
         }
     }
 }
