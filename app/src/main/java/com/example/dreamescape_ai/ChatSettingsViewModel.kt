@@ -147,14 +147,18 @@ class ChatSettingsViewModel(
         }
     }
 
+    // Mirrors the backend's DEFAULT_CHAT_SETTINGS (src/application/chats/settings.py).
+    // The backend now actually applies these to generation, so the values shown here
+    // for a chat with no settings row must match what the backend uses — otherwise the
+    // UI misrepresents the current behavior, and saving would silently change it.
     private fun defaultSettings() = ChatSettings(
-        aiControlBehavior = ControlBehavior.Control,
-        continueBehavior = ControlBehavior.Control,
-        perspective = Perspective._3rd_Person,
+        aiControlBehavior = ControlBehavior.DonQuoteT_Control,
+        continueBehavior = ControlBehavior.DonQuoteT_Control,
+        perspective = Perspective._2nd_Person,
         temperature = TemperatureSettings(preset = Preset.Mid, value = BigDecimal("0.7")),
         responseLength = ResponseLength.Medium,
-        responseTokenLimit = TokenLimit.High,
-        reasoning = Toggle.On,
+        responseTokenLimit = TokenLimit.Capped,
+        reasoning = Toggle.Off,
         reasoningEffort = ReasoningEffort.Mid,
         aiMediaPicker = Toggle.Off,
         functions = FunctionsSettings(characterNameGenerator = true),
