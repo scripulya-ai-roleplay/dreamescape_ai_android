@@ -35,6 +35,7 @@ fun CreditUsageScreen(
     onCreateScene: () -> Unit,
     onMyCharacters: () -> Unit,
     onMyScenes: () -> Unit,
+    onImportSillyTavern: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -92,5 +93,10 @@ fun CreditUsageScreen(
                 modifier = Modifier.weight(1f)
             ) { Text("My Scenes") }
         }
+        Spacer(Modifier.height(12.dp))
+        Button(
+            onClick = onImportSillyTavern,
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Import from SillyTavern") }
     }
 }

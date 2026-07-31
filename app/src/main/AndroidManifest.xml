@@ -83,6 +83,11 @@
                 android:label="My Scenes"
                 android:theme="@style/Theme.Dreamescape_ai"/>
         <activity
+                android:name=".ImportSillyTavernActivity"
+                android:exported="false"
+                android:label="Import from SillyTavern"
+                android:theme="@style/Theme.Dreamescape_ai"/>
+        <activity
                 android:name=".AdvancedSettingsActivity"
                 android:exported="false"
                 android:label="Advanced Settings"

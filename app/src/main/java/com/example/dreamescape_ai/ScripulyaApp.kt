@@ -58,6 +58,7 @@ fun ScripulyaApp(
     onCreateScene: () -> Unit = {},
     onMyCharacters: () -> Unit = {},
     onMyScenes: () -> Unit = {},
+    onImportSillyTavern: () -> Unit = {},
     discoveryViewModel: DiscoveryViewModel = viewModel()
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(ScripulyaTab.HOME) }
@@ -122,7 +123,8 @@ fun ScripulyaApp(
                         onCreateCharacter = onCreateCharacter,
                         onCreateScene = onCreateScene,
                         onMyCharacters = onMyCharacters,
-                        onMyScenes = onMyScenes
+                        onMyScenes = onMyScenes,
+                        onImportSillyTavern = onImportSillyTavern
                     )
 
                     // The Feedback/Chat tab shows the user's own conversations inline.

@@ -50,6 +50,9 @@ class MainActivity : ComponentActivity() {
                     },
                     onMyScenes = {
                         startActivity(Intent(this, MyScenesActivity::class.java))
+                    },
+                    onImportSillyTavern = {
+                        startActivity(Intent(this, ImportSillyTavernActivity::class.java))
                     }
                     // onPlay left as a no-op: the History feed is still sample data.
                 )
