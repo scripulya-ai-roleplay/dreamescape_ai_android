@@ -55,6 +55,7 @@ class ImportApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient 
      * @param importImages  (optional, default to true)
      * @param selectedKeys Entry keys to import; omit to import all (optional)
      * @param linkScenes Link every created character to each created scene (optional, default to true)
+     * @param attachToCharacterId  (optional)
      * @return ApiResponseImportLorebookResultDTO
      * @throws IllegalStateException If the request is not correctly configured
      * @throws IOException Rethrows the OkHttp execute method exception
@@ -64,8 +65,8 @@ class ImportApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient 
      */
     @Suppress("UNCHECKED_CAST")
     @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
-    fun importLorebookApiV1ImportLorebookPost(file: kotlin.String, isPublic: kotlin.Boolean? = false, importImages: kotlin.Boolean? = true, selectedKeys: kotlin.collections.List<kotlin.String>? = null, linkScenes: kotlin.Boolean? = true) : ApiResponseImportLorebookResultDTO {
-        val localVarResponse = importLorebookApiV1ImportLorebookPostWithHttpInfo(file = file, isPublic = isPublic, importImages = importImages, selectedKeys = selectedKeys, linkScenes = linkScenes)
+    fun importLorebookApiV1ImportLorebookPost(file: kotlin.String, isPublic: kotlin.Boolean? = false, importImages: kotlin.Boolean? = true, selectedKeys: kotlin.collections.List<kotlin.String>? = null, linkScenes: kotlin.Boolean? = true, attachToCharacterId: java.util.UUID? = null) : ApiResponseImportLorebookResultDTO {
+        val localVarResponse = importLorebookApiV1ImportLorebookPostWithHttpInfo(file = file, isPublic = isPublic, importImages = importImages, selectedKeys = selectedKeys, linkScenes = linkScenes, attachToCharacterId = attachToCharacterId)
 
         return when (localVarResponse.responseType) {
             ResponseType.Success -> (localVarResponse as Success<*>).data as ApiResponseImportLorebookResultDTO
@@ -90,14 +91,15 @@ class ImportApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient 
      * @param importImages  (optional, default to true)
      * @param selectedKeys Entry keys to import; omit to import all (optional)
      * @param linkScenes Link every created character to each created scene (optional, default to true)
+     * @param attachToCharacterId  (optional)
      * @return ApiResponse<ApiResponseImportLorebookResultDTO?>
      * @throws IllegalStateException If the request is not correctly configured
      * @throws IOException Rethrows the OkHttp execute method exception
      */
     @Suppress("UNCHECKED_CAST")
     @Throws(IllegalStateException::class, IOException::class)
-    fun importLorebookApiV1ImportLorebookPostWithHttpInfo(file: kotlin.String, isPublic: kotlin.Boolean?, importImages: kotlin.Boolean?, selectedKeys: kotlin.collections.List<kotlin.String>?, linkScenes: kotlin.Boolean?) : ApiResponse<ApiResponseImportLorebookResultDTO?> {
-        val localVariableConfig = importLorebookApiV1ImportLorebookPostRequestConfig(file = file, isPublic = isPublic, importImages = importImages, selectedKeys = selectedKeys, linkScenes = linkScenes)
+    fun importLorebookApiV1ImportLorebookPostWithHttpInfo(file: kotlin.String, isPublic: kotlin.Boolean?, importImages: kotlin.Boolean?, selectedKeys: kotlin.collections.List<kotlin.String>?, linkScenes: kotlin.Boolean?, attachToCharacterId: java.util.UUID?) : ApiResponse<ApiResponseImportLorebookResultDTO?> {
+        val localVariableConfig = importLorebookApiV1ImportLorebookPostRequestConfig(file = file, isPublic = isPublic, importImages = importImages, selectedKeys = selectedKeys, linkScenes = linkScenes, attachToCharacterId = attachToCharacterId)
 
         return request<Map<String, PartConfig<*>>, ApiResponseImportLorebookResultDTO>(
             localVariableConfig
@@ -112,15 +114,17 @@ class ImportApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient 
      * @param importImages  (optional, default to true)
      * @param selectedKeys Entry keys to import; omit to import all (optional)
      * @param linkScenes Link every created character to each created scene (optional, default to true)
+     * @param attachToCharacterId  (optional)
      * @return RequestConfig
      */
-    fun importLorebookApiV1ImportLorebookPostRequestConfig(file: kotlin.String, isPublic: kotlin.Boolean?, importImages: kotlin.Boolean?, selectedKeys: kotlin.collections.List<kotlin.String>?, linkScenes: kotlin.Boolean?) : RequestConfig<Map<String, PartConfig<*>>> {
+    fun importLorebookApiV1ImportLorebookPostRequestConfig(file: kotlin.String, isPublic: kotlin.Boolean?, importImages: kotlin.Boolean?, selectedKeys: kotlin.collections.List<kotlin.String>?, linkScenes: kotlin.Boolean?, attachToCharacterId: java.util.UUID?) : RequestConfig<Map<String, PartConfig<*>>> {
         val localVariableBody = mapOf(
             "file" to PartConfig(body = file, headers = mutableMapOf()),
             "is_public" to PartConfig(body = isPublic, headers = mutableMapOf()),
             "import_images" to PartConfig(body = importImages, headers = mutableMapOf()),
             "selected_keys" to PartConfig(body = selectedKeys, headers = mutableMapOf()),
-            "link_scenes" to PartConfig(body = linkScenes, headers = mutableMapOf()),)
+            "link_scenes" to PartConfig(body = linkScenes, headers = mutableMapOf()),
+            "attach_to_character_id" to PartConfig(body = attachToCharacterId, headers = mutableMapOf()),)
         val localVariableQuery: MultiValueMap = mutableMapOf()
         val localVariableHeaders: MutableMap<String, String> = mutableMapOf("Content-Type" to "multipart/form-data")
         localVariableHeaders["Accept"] = "application/json"
@@ -137,7 +141,7 @@ class ImportApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient 
 
     /**
      * Preview Lorebook
-     * Parse-only preview: returns the candidate characters &amp; scenes found in the file so the client can let the user pick. No DB writes.
+     * 
      * @param file SillyTavern World Info / lorebook JSON
      * @return ApiResponseImportPreviewDTO
      * @throws IllegalStateException If the request is not correctly configured
@@ -168,7 +172,7 @@ class ImportApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient 
 
     /**
      * Preview Lorebook
-     * Parse-only preview: returns the candidate characters &amp; scenes found in the file so the client can let the user pick. No DB writes.
+     * 
      * @param file SillyTavern World Info / lorebook JSON
      * @return ApiResponse<ApiResponseImportPreviewDTO?>
      * @throws IllegalStateException If the request is not correctly configured

@@ -46,6 +46,8 @@ object SillyTavernImporter {
     /**
      * Import the entries whose keys are in [selectedKeys]. Pass [linkScenes] = false
      * to keep characters and scenes independent (the user links them later).
+     * Pass [attachToCharacterId] to append the lorebook content to an existing
+     * character's system prompt instead of creating new characters/scenes.
      */
     fun importLorebook(
         file: File,
@@ -53,11 +55,13 @@ object SillyTavernImporter {
         isPublic: Boolean,
         importImages: Boolean,
         linkScenes: Boolean = false,
+        attachToCharacterId: java.util.UUID? = null,
     ): ApiResponseImportLorebookResultDTO {
         val builder = MultipartBody.Builder().setType(MultipartBody.FORM)
             .addFormDataPart("is_public", isPublic.toString())
             .addFormDataPart("import_images", importImages.toString())
             .addFormDataPart("link_scenes", linkScenes.toString())
+        attachToCharacterId?.let { builder.addFormDataPart("attach_to_character_id", it.toString()) }
         // One repeated form part per key; FastAPI collects these into a list.
         for (key in selectedKeys) {
             builder.addFormDataPart("selected_keys", key)

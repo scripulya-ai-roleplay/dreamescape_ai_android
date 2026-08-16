@@ -127,6 +127,7 @@ private fun ImportSillyTavernScreen(
                 onAllScenes = viewModel::setAllScenes,
                 onImportImages = viewModel::setImportImages,
                 onIsPublic = viewModel::setIsPublic,
+                onSelectAttachTarget = viewModel::selectAttachTarget,
                 onImport = viewModel::doImport,
             )
         }
@@ -143,10 +144,12 @@ private fun PreviewView(
     onAllScenes: (Boolean) -> Unit,
     onImportImages: (Boolean) -> Unit,
     onIsPublic: (Boolean) -> Unit,
+    onSelectAttachTarget: (AttachTarget?) -> Unit,
     onImport: () -> Unit,
 ) {
     val hasCandidates = state.characters.isNotEmpty() || state.scenes.isNotEmpty()
     val selectedCount = state.selectedCharacterKeys.size + state.selectedSceneKeys.size
+    val importEnabled = !state.isLoading && (selectedCount > 0 || state.attaching)
 
     if (state.isLoading) {
         Row(
@@ -218,6 +221,15 @@ private fun PreviewView(
         )
     }
 
+    if (state.attachTargets.isNotEmpty()) {
+        Spacer(Modifier.height(16.dp))
+        AttachTargetSection(
+            targets = state.attachTargets,
+            selected = state.attachToCharacter,
+            onSelect = onSelectAttachTarget,
+        )
+    }
+
     Spacer(Modifier.height(16.dp))
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -240,13 +252,55 @@ private fun PreviewView(
     Spacer(Modifier.height(20.dp))
     Button(
         onClick = onImport,
-        enabled = !state.isLoading && selectedCount > 0,
+        enabled = importEnabled,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Text(if (selectedCount > 0) "Import $selectedCount selected" else "Import selected")
+        Text(
+            when {
+                state.attaching -> "Add to ${state.attachToCharacter?.name ?: "character"}"
+                selectedCount > 0 -> "Import $selectedCount selected"
+                else -> "Import selected"
+            }
+        )
     }
     Spacer(Modifier.height(8.dp))
     OutlinedButton(onClick = onPick, modifier = Modifier.fillMaxWidth()) { Text("Choose a different file") }
+}
+
+@Composable
+private fun AttachTargetSection(
+    targets: List<AttachTarget>,
+    selected: AttachTarget?,
+    onSelect: (AttachTarget?) -> Unit,
+) {
+    Text(
+        "Add to an existing character (optional)",
+        color = ScripulyaText,
+        fontWeight = FontWeight.Bold,
+        style = MaterialTheme.typography.titleSmall
+    )
+    Text(
+        "Instead of importing as new characters/scenes, append this lorebook's " +
+            "content to one of your characters' prompts. Leave unselected for a normal import.",
+        color = ScripulyaText.copy(alpha = 0.6f),
+        style = MaterialTheme.typography.bodySmall,
+        modifier = Modifier.padding(vertical = 4.dp)
+    )
+    targets.forEach { target ->
+        val checked = selected?.id == target.id
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .scripPanel()
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+        ) {
+            Checkbox(checked = checked, onCheckedChange = { onSelect(target) })
+            Spacer(Modifier.width(8.dp))
+            Text(target.name, color = ScripulyaText)
+        }
+        Spacer(Modifier.height(4.dp))
+    }
 }
 
 @Composable
@@ -326,8 +380,14 @@ private fun DoneView(
         modifier = Modifier.fillMaxWidth().scripPanel().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Text("${result.charactersCreated} character(s) imported", color = ScripulyaText)
-        Text("${result.scenesCreated} scene(s) imported", color = ScripulyaText)
+        if (result.appendedToCharacterId != null) {
+            Text(
+                "Lorebook added to ${state.attachToCharacter?.name ?: "your character"}'s prompt.",
+                color = ScripulyaText
+            )
+        }
+        if (result.charactersCreated > 0) Text("${result.charactersCreated} character(s) imported", color = ScripulyaText)
+        if (result.scenesCreated > 0) Text("${result.scenesCreated} scene(s) imported", color = ScripulyaText)
         if (result.imagesImported > 0) Text("${result.imagesImported} image(s) imported", color = ScripulyaText)
         if (result.imageFailures.isNotEmpty()) {
             Text("${result.imageFailures.size} image(s) failed to import", color = MaterialTheme.colorScheme.error)
@@ -337,11 +397,13 @@ private fun DoneView(
         }
     }
     Spacer(Modifier.height(12.dp))
-    Text(
-        "Imported unlinked — link characters to scenes from a scene's characters screen.",
-        color = ScripulyaText.copy(alpha = 0.7f),
-        style = MaterialTheme.typography.bodyMedium
-    )
+    if (result.appendedToCharacterId == null) {
+        Text(
+            "Imported unlinked — link characters to scenes from a scene's characters screen.",
+            color = ScripulyaText.copy(alpha = 0.7f),
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
     Spacer(Modifier.height(20.dp))
     Button(onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text("Done") }
     Spacer(Modifier.height(8.dp))

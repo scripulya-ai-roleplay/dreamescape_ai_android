@@ -28,7 +28,9 @@ import com.squareup.moshi.JsonClass
  * @param imageFailures 
  * @param characterIds 
  * @param sceneIds 
- * @param skippedEntries 
+ * @param skippedEntries
+ * @param appendedToCharacterId Set when the lorebook was appended to an existing character instead of
+ *     creating new entities.
  */
 
 
@@ -53,7 +55,10 @@ data class ImportLorebookResultDTO (
     val sceneIds: kotlin.collections.List<java.util.UUID>,
 
     @Json(name = "skipped_entries")
-    val skippedEntries: kotlin.Int
+    val skippedEntries: kotlin.Int,
+
+    @Json(name = "appended_to_character_id")
+    val appendedToCharacterId: java.util.UUID? = null
 
 ) {
 

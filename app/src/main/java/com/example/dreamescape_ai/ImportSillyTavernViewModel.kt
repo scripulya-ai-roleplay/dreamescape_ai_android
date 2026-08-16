@@ -10,11 +10,20 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.openapitools.client.models.ApiResponseImportLorebookResultDTO
 import org.openapitools.client.models.ApiResponseImportPreviewDTO
+import org.openapitools.client.models.ApiResponsePageCharacter
 import org.openapitools.client.models.ImportCandidateDTO
 import org.openapitools.client.models.ImportLorebookResultDTO
+import com.example.dreamescape_ai.auth.JwtTokenProvider
 import java.io.File
+import java.util.UUID
 
 enum class ImportPhase { IDLE, PREVIEWING, IMPORTING, DONE }
+
+/** A character the user owns, offered as an attach target for a lorebook. */
+data class AttachTarget(
+    val id: UUID,
+    val name: String,
+)
 
 data class ImportSillyTavernUiState(
     val phase: ImportPhase = ImportPhase.IDLE,
@@ -30,15 +39,28 @@ data class ImportSillyTavernUiState(
     /** Off by default: importing images makes the backend fetch external URLs. */
     val importImages: Boolean = false,
     val isPublic: Boolean = false,
+    /**
+     * When set, the lorebook content is appended to this character's system
+     * prompt instead of creating new characters/scenes. Null = normal import.
+     */
+    val attachToCharacter: AttachTarget? = null,
+    /** The user's own characters, loaded for the attach picker. */
+    val attachTargets: List<AttachTarget> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val result: ImportLorebookResultDTO? = null,
-)
+) {
+    val attaching: Boolean get() = attachToCharacter != null
+}
 
 /**
  * Drives the SillyTavern import flow: pick → (client-side validate) → server
  * preview → user selects a subset → import **unlinked** ([linkScenes] = false),
  * leaving characters and scenes independent for the user to link later.
+ *
+ * Alternatively the user can attach the whole lorebook to one of their existing
+ * characters (e.g. character-lore books belonging to a card-imported character):
+ * the content is appended to that character's system prompt.
  *
  * API calls are injected (see [CreateCharacterViewModel]) so the logic is
  * unit-testable without the network.
@@ -46,10 +68,17 @@ data class ImportSillyTavernUiState(
 class ImportSillyTavernViewModel(
     private val previewCall: (File) -> ApiResponseImportPreviewDTO = { SillyTavernImporter.preview(it) },
     private val importCall: (
-        File, List<String>, Boolean, Boolean, Boolean,
-    ) -> ApiResponseImportLorebookResultDTO = { file, keys, isPublic, importImages, linkScenes ->
-        SillyTavernImporter.importLorebook(file, keys, isPublic, importImages, linkScenes)
+        File, List<String>, Boolean, Boolean, Boolean, UUID?,
+    ) -> ApiResponseImportLorebookResultDTO = { file, keys, isPublic, importImages, linkScenes, attachTo ->
+        SillyTavernImporter.importLorebook(file, keys, isPublic, importImages, linkScenes, attachTo)
     },
+    private val searchCharactersCall: (List<UUID>, Int?, Int?) -> ApiResponsePageCharacter =
+        { ownerIds, offset, limit ->
+            org.openapitools.client.apis.CharactersApi().searchCharacterApiV1CharactersGet(
+                ownerIds = ownerIds, offset = offset, limit = limit
+            )
+        },
+    private val ownerId: UUID = JwtTokenProvider().userId,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
 
@@ -105,11 +134,29 @@ class ImportSillyTavernViewModel(
                     otherEntries = preview.otherEntries,
                     skippedEntries = preview.skippedEntries,
                 )
+                loadAttachTargets()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false, errorMessage = e.message ?: "Failed to read the file"
                 )
             }
+        }
+    }
+
+    /** Loads the user's own characters so they can pick an attach target. */
+    private suspend fun loadAttachTargets() {
+        if (_uiState.value.attachTargets.isNotEmpty()) return
+        try {
+            val page = searchCharactersCall(listOf(ownerId), 0, 100).result
+            _uiState.value = _uiState.value.copy(
+                attachTargets = page.items.mapNotNull { c ->
+                    c.id?.let { AttachTarget(it, c.name) }
+                }
+            )
+        } catch (e: Exception) {
+            // The attach picker is optional; failing to list characters must
+            // not break the normal import flow.
+            _uiState.value = _uiState.value.copy(attachTargets = emptyList())
         }
     }
 
@@ -145,6 +192,13 @@ class ImportSillyTavernViewModel(
         _uiState.value = _uiState.value.copy(importImages = value)
     }
 
+    /** Picks (or unpicks, on a second tap of the same target) the attach character. */
+    fun selectAttachTarget(target: AttachTarget?) {
+        _uiState.value = _uiState.value.copy(
+            attachToCharacter = if (_uiState.value.attachToCharacter?.id == target?.id) null else target
+        )
+    }
+
     fun dismissError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
     }
@@ -159,16 +213,19 @@ class ImportSillyTavernViewModel(
         if (state.isLoading) return
         val file = state.file ?: return
         val selectedKeys = state.selectedCharacterKeys + state.selectedSceneKeys
-        if (selectedKeys.isEmpty()) {
+        // Attaching needs no selection: with nothing picked, the backend
+        // appends every entry in the lorebook to the target character.
+        if (!state.attaching && selectedKeys.isEmpty()) {
             _uiState.value = state.copy(errorMessage = "Select at least one character or scene to import.")
             return
         }
 
-        _uiState.value = state.copy(phase = ImportPhase.IMPORTING, isLoading = true, errorMessage = null)
+        _uiState.value = _uiState.value.copy(phase = ImportPhase.IMPORTING, isLoading = true, errorMessage = null)
         viewModelScope.launch(ioDispatcher) {
             try {
                 val result = importCall(
                     file, selectedKeys.toList(), state.isPublic, state.importImages, false,
+                    state.attachToCharacter?.id,
                 ).result
                 _uiState.value = _uiState.value.copy(
                     phase = ImportPhase.DONE, isLoading = false, result = result
