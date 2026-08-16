@@ -25,8 +25,10 @@ import com.squareup.moshi.JsonClass
  *
  * @param llmModel 
  * @param contextWindowTokens 
+ * @param usableTokens 
  * @param remainingTokens 
  * @param fits 
+ * @param estimated 
  */
 
 
@@ -38,11 +40,17 @@ data class ModelContextUsage (
     @Json(name = "context_window_tokens")
     val contextWindowTokens: kotlin.Int,
 
+    @Json(name = "usable_tokens")
+    val usableTokens: kotlin.Int,
+
     @Json(name = "remaining_tokens")
     val remainingTokens: kotlin.Int,
 
     @Json(name = "fits")
-    val fits: kotlin.Boolean
+    val fits: kotlin.Boolean,
+
+    @Json(name = "estimated")
+    val estimated: kotlin.Boolean
 
 ) {
 

@@ -23,18 +23,19 @@ import com.squareup.moshi.JsonClass
 /**
  * 
  *
- * @param systemPromptTokens 
+ * @param cardsTokens 
  * @param historyTokens 
  * @param historyMessagesCount 
  * @param totalTokens 
+ * @param estimated 
  * @param models 
  */
 
 
 data class ContextUsage (
 
-    @Json(name = "system_prompt_tokens")
-    val systemPromptTokens: kotlin.Int,
+    @Json(name = "cards_tokens")
+    val cardsTokens: kotlin.Int,
 
     @Json(name = "history_tokens")
     val historyTokens: kotlin.Int,
@@ -44,6 +45,9 @@ data class ContextUsage (
 
     @Json(name = "total_tokens")
     val totalTokens: kotlin.Int,
+
+    @Json(name = "estimated")
+    val estimated: kotlin.Boolean,
 
     @Json(name = "models")
     val models: kotlin.collections.List<ModelContextUsage>
