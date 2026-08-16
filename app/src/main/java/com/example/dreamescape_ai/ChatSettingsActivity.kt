@@ -34,6 +34,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -67,6 +68,7 @@ import com.example.dreamescape_ai.data.spec
 import com.example.dreamescape_ai.data.supportsReasoning
 import com.example.dreamescape_ai.ui.theme.Dreamescape_aiTheme
 import org.openapitools.client.models.ControlBehavior
+import org.openapitools.client.models.ContextUsage
 import org.openapitools.client.models.LLMModelType
 import org.openapitools.client.models.Perspective
 import org.openapitools.client.models.Preset
@@ -184,6 +186,11 @@ fun ChatSettingsScreen(
             model = model,
             isSelected = false,
             onClick = { showModelPicker = true }
+        )
+
+        ContextUsageBar(
+            usage = uiState.contextUsage,
+            model = model
         )
 
         EnumButtonGroup(
@@ -361,6 +368,51 @@ private fun <T> EnumButtonGroup(
         }
     }
 }
+
+@Composable
+private fun ContextUsageBar(
+    usage: ContextUsage?,
+    model: LLMModelType,
+    modifier: Modifier = Modifier
+) {
+    // The backend reports usage against its own model list; a model missing
+    // from the response (e.g. testing_mock) just hides the bar.
+    val modelUsage = usage?.models?.firstOrNull { it.llmModel == model } ?: return
+    val window = modelUsage.contextWindowTokens
+    val used = usage.totalTokens
+    val fraction = (used.toFloat() / window).coerceIn(0f, 1f)
+
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(
+                "Context: ${used.decimalFormat()} / ${window.decimalFormat()} used",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (modelUsage.fits) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.error
+                }
+            )
+            Text(
+                "${modelUsage.remainingTokens.coerceAtLeast(0).decimalFormat()} left",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        LinearProgressIndicator(
+            progress = { fraction },
+            color = if (modelUsage.fits) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.error
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+/** 1234567 -> "1,234,567" — full number with grouping for the usage counter. */
+private fun Int.decimalFormat(): String = java.text.NumberFormat.getIntegerInstance().format(this)
 
 @Composable
 private fun ModelCard(

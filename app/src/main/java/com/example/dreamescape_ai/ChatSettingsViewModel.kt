@@ -12,9 +12,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.openapitools.client.apis.ChatSettingsApi
+import org.openapitools.client.apis.ChatsApi
 import org.openapitools.client.infrastructure.ClientException
 import org.openapitools.client.models.ApiResponseChatSettings
+import org.openapitools.client.models.ApiResponseContextUsage
 import org.openapitools.client.models.ChatSettings
+import org.openapitools.client.models.ContextUsage
 import org.openapitools.client.models.ControlBehavior
 import org.openapitools.client.models.FunctionsSettings
 import org.openapitools.client.models.LLMModelType
@@ -31,6 +34,7 @@ import java.util.UUID
 data class ChatSettingsUiState(
     val settings: ChatSettings? = null,
     val selectedModel: LLMModelType = ChatModelStore.DEFAULT_MODEL,
+    val contextUsage: ContextUsage? = null,
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val errorMessage: String? = null,
@@ -46,6 +50,9 @@ class ChatSettingsViewModel(
     private val upsertSettingsCall: (UUID, ChatSettings) -> ApiResponseChatSettings = { id, settings ->
         ChatSettingsApi().upsertChatSettingsApiV1ChatsChatIdSettingsPut(id, settings)
     },
+    private val getContextUsageCall: (UUID) -> ApiResponseContextUsage = { id ->
+        ChatsApi().getChatContextUsageApiV1ChatsChatIdContextUsageGet(id)
+    },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
 
@@ -55,6 +62,7 @@ class ChatSettingsViewModel(
     init {
         loadSettings()
         loadSelectedModel()
+        loadContextUsage()
     }
 
     fun loadSettings() {
@@ -79,6 +87,22 @@ class ChatSettingsViewModel(
                     isLoading = false,
                     errorMessage = e.message ?: "Failed to load settings"
                 )
+            }
+        }
+    }
+
+    /**
+     * Fetches the token usage of the chat's current context (system prompt +
+     * history) with per-model context windows. Non-fatal: the usage bar simply
+     * stays hidden if this call fails, so it never blocks editing settings.
+     */
+    fun loadContextUsage() {
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                val usage = getContextUsageCall(chatId).result
+                _uiState.value = _uiState.value.copy(contextUsage = usage)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(contextUsage = null)
             }
         }
     }

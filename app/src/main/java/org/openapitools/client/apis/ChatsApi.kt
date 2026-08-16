@@ -20,6 +20,7 @@ import okhttp3.OkHttpClient
 import okhttp3.HttpUrl
 
 import org.openapitools.client.models.ApiResponseChat
+import org.openapitools.client.models.ApiResponseContextUsage
 import org.openapitools.client.models.ApiResponsePageChat
 import org.openapitools.client.models.BodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost
 import org.openapitools.client.models.BodySetChatPersonaApiV1ChatsChatIdPersonaPost
@@ -263,6 +264,77 @@ class ChatsApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient =
         return RequestConfig(
             method = RequestMethod.DELETE,
             path = "/api/v1/chats/{chat_id}".replace("{"+"chat_id"+"}", encodeURIComponent(chatId.toString())),
+            query = localVariableQuery,
+            headers = localVariableHeaders,
+            requiresAuthentication = true,
+            body = localVariableBody
+        )
+    }
+
+    /**
+     * Get Chat Context Usage
+     * 
+     * @param chatId 
+     * @return ApiResponseContextUsage
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
+    fun getChatContextUsageApiV1ChatsChatIdContextUsageGet(chatId: java.util.UUID) : ApiResponseContextUsage {
+        val localVarResponse = getChatContextUsageApiV1ChatsChatIdContextUsageGetWithHttpInfo(chatId = chatId)
+
+        return when (localVarResponse.responseType) {
+            ResponseType.Success -> (localVarResponse as Success<*>).data as ApiResponseContextUsage
+            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
+            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
+            ResponseType.ClientError -> {
+                val localVarError = localVarResponse as ClientError<*>
+                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
+            }
+            ResponseType.ServerError -> {
+                val localVarError = localVarResponse as ServerError<*>
+                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()} ${localVarError.body}", localVarError.statusCode, localVarResponse)
+            }
+        }
+    }
+
+    /**
+     * Get Chat Context Usage
+     * 
+     * @param chatId 
+     * @return ApiResponse<ApiResponseContextUsage?>
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class)
+    fun getChatContextUsageApiV1ChatsChatIdContextUsageGetWithHttpInfo(chatId: java.util.UUID) : ApiResponse<ApiResponseContextUsage?> {
+        val localVariableConfig = getChatContextUsageApiV1ChatsChatIdContextUsageGetRequestConfig(chatId = chatId)
+
+        return request<Unit, ApiResponseContextUsage>(
+            localVariableConfig
+        )
+    }
+
+    /**
+     * To obtain the request config of the operation getChatContextUsageApiV1ChatsChatIdContextUsageGet
+     *
+     * @param chatId 
+     * @return RequestConfig
+     */
+    fun getChatContextUsageApiV1ChatsChatIdContextUsageGetRequestConfig(chatId: java.util.UUID) : RequestConfig<Unit> {
+        val localVariableBody = null
+        val localVariableQuery: MultiValueMap = mutableMapOf()
+        val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Accept"] = "application/json"
+
+        return RequestConfig(
+            method = RequestMethod.GET,
+            path = "/api/v1/chats/{chat_id}/context-usage".replace("{"+"chat_id"+"}", encodeURIComponent(chatId.toString())),
             query = localVariableQuery,
             headers = localVariableHeaders,
             requiresAuthentication = true,
