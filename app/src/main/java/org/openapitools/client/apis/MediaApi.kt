@@ -24,6 +24,7 @@ import org.openapitools.client.models.ApiResponseMediaAssetDTO
 import org.openapitools.client.models.ApiResponsePageMediaAssetDTO
 import org.openapitools.client.models.HTTPValidationError
 import org.openapitools.client.models.MediaEntityType
+import org.openapitools.client.models.MediaUpdateDTO
 import org.openapitools.client.models.ModelApiResponse
 
 import com.squareup.moshi.Json
@@ -369,8 +370,83 @@ class MediaApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient =
     }
 
     /**
+     * Update Media
+     *
+     * @param mediaId
+     * @param mediaUpdateDTO
+     * @return ApiResponseMediaAssetDTO
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
+    fun updateMediaApiV1MediaMediaIdPatch(mediaId: java.util.UUID, mediaUpdateDTO: MediaUpdateDTO) : ApiResponseMediaAssetDTO {
+        val localVarResponse = updateMediaApiV1MediaMediaIdPatchWithHttpInfo(mediaId = mediaId, mediaUpdateDTO = mediaUpdateDTO)
+
+        return when (localVarResponse.responseType) {
+            ResponseType.Success -> (localVarResponse as Success<*>).data as ApiResponseMediaAssetDTO
+            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
+            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
+            ResponseType.ClientError -> {
+                val localVarError = localVarResponse as ClientError<*>
+                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
+            }
+            ResponseType.ServerError -> {
+                val localVarError = localVarResponse as ServerError<*>
+                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()} ${localVarError.body}", localVarError.statusCode, localVarResponse)
+            }
+        }
+    }
+
+    /**
+     * Update Media
+     *
+     * @param mediaId
+     * @param mediaUpdateDTO
+     * @return ApiResponse<ApiResponseMediaAssetDTO?>
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class)
+    fun updateMediaApiV1MediaMediaIdPatchWithHttpInfo(mediaId: java.util.UUID, mediaUpdateDTO: MediaUpdateDTO) : ApiResponse<ApiResponseMediaAssetDTO?> {
+        val localVariableConfig = updateMediaApiV1MediaMediaIdPatchRequestConfig(mediaId = mediaId, mediaUpdateDTO = mediaUpdateDTO)
+
+        return request<MediaUpdateDTO, ApiResponseMediaAssetDTO>(
+            localVariableConfig
+        )
+    }
+
+    /**
+     * To obtain the request config of the operation updateMediaApiV1MediaMediaIdPatch
+     *
+     * @param mediaId
+     * @param mediaUpdateDTO
+     * @return RequestConfig
+     */
+    fun updateMediaApiV1MediaMediaIdPatchRequestConfig(mediaId: java.util.UUID, mediaUpdateDTO: MediaUpdateDTO) : RequestConfig<MediaUpdateDTO> {
+        val localVariableBody = mediaUpdateDTO
+        val localVariableQuery: MultiValueMap = mutableMapOf()
+        val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Content-Type"] = "application/json"
+        localVariableHeaders["Accept"] = "application/json"
+
+        return RequestConfig(
+            method = RequestMethod.PATCH,
+            path = "/api/v1/media/{media_id}".replace("{"+"media_id"+"}", encodeURIComponent(mediaId.toString())),
+            query = localVariableQuery,
+            headers = localVariableHeaders,
+            requiresAuthentication = true,
+            body = localVariableBody
+        )
+    }
+
+    /**
      * Upload Media
-     * 
+     *
      * @param file Image file (png/jpeg/webp/gif/bmp/tiff/ico)
      * @param entityType Owning entity kind: character | scene | user
      * @param entityId ID of the owning entity

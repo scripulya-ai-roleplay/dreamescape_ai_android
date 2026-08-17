@@ -2,6 +2,7 @@ package com.example.dreamescape_ai
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.dreamescape_ai.auth.JwtTokenProvider
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +17,7 @@ import org.openapitools.client.models.ApiResponseLikeState
 import org.openapitools.client.models.ApiResponseListMediaAssetDTO
 import org.openapitools.client.models.Character
 import org.openapitools.client.models.MediaEntityType
+import org.openapitools.client.models.MediaLayer
 import java.util.UUID
 
 data class CharacterPreviewUiState(
@@ -24,6 +26,8 @@ data class CharacterPreviewUiState(
     val portraitResolved: Boolean = false,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
+    // Whether the current user owns this character — only owners manage images.
+    val isOwner: Boolean = false,
     // Like / bookmark engagement for the current user.
     val isLiked: Boolean = false,
     val likesCount: Int = 0,
@@ -60,6 +64,7 @@ class CharacterPreviewViewModel(
     private val unsetBookmarkCall: (UUID) -> ApiResponseBookmarkState = { id ->
         CharactersApi().unbookmarkCharacterApiV1CharactersCharacterIdBookmarkDelete(characterId = id)
     },
+    private val userId: UUID = JwtTokenProvider().userId,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
 
@@ -76,7 +81,11 @@ class CharacterPreviewViewModel(
         viewModelScope.launch(ioDispatcher) {
             try {
                 val character = getCharacterCall(characterId).result
-                _uiState.value = _uiState.value.copy(character = character, isLoading = false)
+                _uiState.value = _uiState.value.copy(
+                    character = character,
+                    isLoading = false,
+                    isOwner = character.ownerId == userId
+                )
                 resolvePortraitImage(character.id)
                 loadEngagementState(character.id)
             } catch (e: Exception) {
@@ -89,8 +98,10 @@ class CharacterPreviewViewModel(
     }
 
     /**
-     * Resolves the character's portrait (first character media asset URL).
-     * Failure leaves the hero without an image rather than failing the preview.
+     * Resolves the character's portrait: the first background-layer asset, or
+     * the first asset overall as a fallback (legacy uploads are all
+     * background). Failure leaves the hero without an image rather than
+     * failing the preview.
      */
     private fun resolvePortraitImage(characterId: UUID?) {
         if (characterId == null) {
@@ -98,12 +109,14 @@ class CharacterPreviewViewModel(
             return
         }
         viewModelScope.launch(ioDispatcher) {
-            val url = try {
-                portraitImageCall(characterId).result.firstOrNull()?.url
+            val assets = try {
+                portraitImageCall(characterId).result
             } catch (_: Exception) {
-                null
+                emptyList()
             }
-            _uiState.value = _uiState.value.copy(portraitUrl = url, portraitResolved = true)
+            val portrait = assets.firstOrNull { it.layer == null || it.layer == MediaLayer.background }
+                ?: assets.firstOrNull()
+            _uiState.value = _uiState.value.copy(portraitUrl = portrait?.url, portraitResolved = true)
         }
     }
 

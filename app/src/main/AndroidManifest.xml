@@ -73,6 +73,11 @@
                 android:label="Media"
                 android:theme="@style/Theme.Dreamescape_ai"/>
         <activity
+                android:name=".EntityMediaManagerActivity"
+                android:exported="false"
+                android:label="Images"
+                android:theme="@style/Theme.Dreamescape_ai"/>
+        <activity
                 android:name=".MyCharactersActivity"
                 android:exported="false"
                 android:label="My Characters"

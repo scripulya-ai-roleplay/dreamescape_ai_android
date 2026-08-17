@@ -40,6 +40,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -51,6 +52,7 @@ import com.example.dreamescape_ai.ui.components.BookmarkButton
 import com.example.dreamescape_ai.ui.components.EngagementBottomBar
 import com.example.dreamescape_ai.ui.components.LikeButton
 import com.example.dreamescape_ai.ui.theme.Dreamescape_aiTheme
+import org.openapitools.client.models.MediaEntityType
 import java.util.UUID
 
 class CharacterPreviewActivity : ComponentActivity() {
@@ -113,6 +115,7 @@ fun CharacterPreviewScreen(
     )
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
 
     Box(modifier = modifier) {
         Column(
@@ -122,7 +125,19 @@ fun CharacterPreviewScreen(
                 title = uiState.character?.name ?: "Name there",
                 imageUrl = uiState.portraitUrl,
                 isLoading = uiState.character == null && uiState.isLoading,
-                onBack = onBack
+                onBack = onBack,
+                onManageImages = uiState.character?.id?.takeIf { uiState.isOwner }?.let { characterId ->
+                    {
+                        context.startActivity(
+                            EntityMediaManagerActivity.intent(
+                                context,
+                                MediaEntityType.character,
+                                characterId,
+                                uiState.character?.name ?: "Images"
+                            )
+                        )
+                    }
+                }
             )
 
             val errorMessage = uiState.errorMessage
@@ -195,7 +210,8 @@ private fun CharacterHero(
     title: String,
     imageUrl: String?,
     isLoading: Boolean,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onManageImages: (() -> Unit)? = null
 ) {
     Box(
         modifier = Modifier
@@ -267,6 +283,25 @@ private fun CharacterHero(
                 contentDescription = "Back",
                 tint = Color.White
             )
+        }
+
+        // Owner-only entry into the per-entity image manager.
+        if (onManageImages != null) {
+            IconButton(
+                onClick = onManageImages,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(8.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.4f))
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Image,
+                    contentDescription = "Manage images",
+                    tint = Color.White
+                )
+            }
         }
     }
 }

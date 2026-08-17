@@ -83,6 +83,7 @@ import com.example.dreamescape_ai.ui.components.BookmarkButton
 import com.example.dreamescape_ai.ui.components.EngagementBottomBar
 import com.example.dreamescape_ai.ui.components.LikeButton
 import com.example.dreamescape_ai.ui.theme.Dreamescape_aiTheme
+import org.openapitools.client.models.MediaEntityType
 import java.util.UUID
 import kotlin.math.abs
 
@@ -180,8 +181,21 @@ fun ScenePreviewScreen(
             SceneHero(
                 title = uiState.scene?.title ?: "Title there",
                 imageUrl = uiState.heroImageUrl,
+                foregroundUrl = uiState.foregroundImageUrl,
                 isLoading = uiState.scene == null && uiState.isLoading,
-                onBack = onBack
+                onBack = onBack,
+                onManageImages = uiState.scene?.id?.takeIf { uiState.isOwner }?.let { sceneUuid ->
+                    {
+                        context.startActivity(
+                            EntityMediaManagerActivity.intent(
+                                context,
+                                MediaEntityType.scene,
+                                sceneUuid,
+                                uiState.scene?.title ?: "Images"
+                            )
+                        )
+                    }
+                }
             )
 
             val errorMessage = uiState.errorMessage
@@ -275,8 +289,10 @@ fun ScenePreviewScreen(
 private fun SceneHero(
     title: String,
     imageUrl: String?,
+    foregroundUrl: String?,
     isLoading: Boolean,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onManageImages: (() -> Unit)? = null
 ) {
     Box(
         modifier = Modifier
@@ -308,6 +324,18 @@ private fun SceneHero(
                     )
                 }
             }
+        }
+
+        // The first attached character's foreground image layered over the
+        // scene's background (transparent PNG). Fit, not Crop, so it keeps
+        // its shape instead of being stretched to the hero bounds.
+        if (foregroundUrl != null) {
+            AsyncImage(
+                model = foregroundUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize()
+            )
         }
 
         // Bottom scrim so the title stays legible over any image.
@@ -348,6 +376,25 @@ private fun SceneHero(
                 contentDescription = "Back",
                 tint = Color.White
             )
+        }
+
+        // Owner-only entry into the per-entity image manager.
+        if (onManageImages != null) {
+            IconButton(
+                onClick = onManageImages,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(8.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.4f))
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Image,
+                    contentDescription = "Manage images",
+                    tint = Color.White
+                )
+            }
         }
     }
 }

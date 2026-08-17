@@ -24,6 +24,7 @@ import org.openapitools.client.models.AttachCharactersDTO
 import org.openapitools.client.models.Character
 import org.openapitools.client.models.Chat
 import org.openapitools.client.models.MediaEntityType
+import org.openapitools.client.models.MediaLayer
 import org.openapitools.client.models.ModelApiResponse
 import org.openapitools.client.models.Scene
 import java.util.UUID
@@ -39,6 +40,9 @@ data class ScenePreviewUiState(
     val scene: Scene? = null,
     val heroImageUrl: String? = null,
     val heroImageResolved: Boolean = false,
+    // The first attached character's foreground image, layered over the hero.
+    val foregroundImageUrl: String? = null,
+    val foregroundResolved: Boolean = false,
     val characters: List<CharacterCardState> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
@@ -393,8 +397,9 @@ class ScenePreviewViewModel(
     }
 
     /**
-     * Resolves the scene's title image (first scene media asset URL). Failure
-     * leaves the hero without an image rather than failing the whole preview.
+     * Resolves the scene's title image: the first background-layer asset, or
+     * just the first asset as a fallback (legacy uploads are all background).
+     * Failure leaves the hero without an image rather than failing the preview.
      */
     private fun resolveHeroImage(sceneId: UUID?) {
         if (sceneId == null) {
@@ -402,12 +407,14 @@ class ScenePreviewViewModel(
             return
         }
         viewModelScope.launch(ioDispatcher) {
-            val url = try {
-                sceneImageCall(sceneId).result.firstOrNull()?.url
+            val assets = try {
+                sceneImageCall(sceneId).result
             } catch (_: Exception) {
-                null
+                emptyList()
             }
-            _uiState.value = _uiState.value.copy(heroImageUrl = url, heroImageResolved = true)
+            val hero = assets.firstOrNull { it.layer == null || it.layer == MediaLayer.background }
+                ?: assets.firstOrNull()
+            _uiState.value = _uiState.value.copy(heroImageUrl = hero?.url, heroImageResolved = true)
         }
     }
 
@@ -421,6 +428,30 @@ class ScenePreviewViewModel(
             val cards = characters.map { CharacterCardState(character = it) }
             _uiState.value = _uiState.value.copy(characters = cards)
             resolveCharacterImages(cards)
+            resolveForegroundOverlay(cards)
+        }
+    }
+
+    /**
+     * The composite hero's foreground layer: the first foreground asset of the
+     * first attached character (the backend orders the cast by attachment
+     * time). Absent everywhere else — a character without foreground-marked
+     * images simply leaves the hero with its background alone.
+     */
+    private fun resolveForegroundOverlay(cards: List<CharacterCardState>) {
+        val firstCharacterId = cards.firstOrNull()?.character?.id
+        if (firstCharacterId == null) {
+            _uiState.value = _uiState.value.copy(foregroundResolved = true)
+            return
+        }
+        viewModelScope.launch(ioDispatcher) {
+            val url = try {
+                characterImageCall(firstCharacterId).result
+                    .firstOrNull { it.layer == MediaLayer.foreground }?.url
+            } catch (_: Exception) {
+                null
+            }
+            _uiState.value = _uiState.value.copy(foregroundImageUrl = url, foregroundResolved = true)
         }
     }
 

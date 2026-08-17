@@ -16,21 +16,25 @@
 package org.openapitools.client.models
 
 import org.openapitools.client.models.MediaEntityType
+import org.openapitools.client.models.MediaLayer
 
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
 /**
- * 
  *
- * @param id 
- * @param url 
- * @param contentType 
- * @param sizeBytes 
- * @param entityType 
- * @param entityId 
- * @param isPublic 
- * @param createdAt 
+ *
+ * @param id
+ * @param url
+ * @param contentType
+ * @param sizeBytes
+ * @param entityType
+ * @param entityId
+ * @param isPublic
+ * @param sortOrder
+ * @param caption
+ * @param layer
+ * @param createdAt
  */
 
 
@@ -56,6 +60,15 @@ data class MediaAssetDTO (
 
     @Json(name = "is_public")
     val isPublic: kotlin.Boolean,
+
+    @Json(name = "sort_order")
+    val sortOrder: kotlin.Int? = 0,
+
+    @Json(name = "caption")
+    val caption: kotlin.String? = null,
+
+    @Json(name = "layer")
+    val layer: MediaLayer? = null,
 
     @Json(name = "created_at")
     val createdAt: java.time.OffsetDateTime? = null
