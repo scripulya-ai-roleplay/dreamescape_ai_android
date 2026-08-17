@@ -19,6 +19,7 @@ import java.io.IOException
 import okhttp3.OkHttpClient
 import okhttp3.HttpUrl
 
+import org.openapitools.client.models.ApiResponseListMediaAssetDTO
 import org.openapitools.client.models.ApiResponseMediaAssetDTO
 import org.openapitools.client.models.ApiResponsePageMediaAssetDTO
 import org.openapitools.client.models.HTTPValidationError
@@ -192,8 +193,84 @@ class MediaApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient =
     }
 
     /**
+     * Get Media For Entity
+     *
+     * @param entityType
+     * @param entityId
+     * @return ApiResponseListMediaAssetDTO
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
+    fun getMediaForEntityApiV1MediaEntityEntityTypeEntityIdGet(entityType: MediaEntityType, entityId: java.util.UUID) : ApiResponseListMediaAssetDTO {
+        val localVarResponse = getMediaForEntityApiV1MediaEntityEntityTypeEntityIdGetWithHttpInfo(entityType = entityType, entityId = entityId)
+
+        return when (localVarResponse.responseType) {
+            ResponseType.Success -> (localVarResponse as Success<*>).data as ApiResponseListMediaAssetDTO
+            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
+            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
+            ResponseType.ClientError -> {
+                val localVarError = localVarResponse as ClientError<*>
+                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
+            }
+            ResponseType.ServerError -> {
+                val localVarError = localVarResponse as ServerError<*>
+                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()} ${localVarError.body}", localVarError.statusCode, localVarResponse)
+            }
+        }
+    }
+
+    /**
+     * Get Media For Entity
+     *
+     * @param entityType
+     * @param entityId
+     * @return ApiResponse<ApiResponseListMediaAssetDTO?>
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class)
+    fun getMediaForEntityApiV1MediaEntityEntityTypeEntityIdGetWithHttpInfo(entityType: MediaEntityType, entityId: java.util.UUID) : ApiResponse<ApiResponseListMediaAssetDTO?> {
+        val localVariableConfig = getMediaForEntityApiV1MediaEntityEntityTypeEntityIdGetRequestConfig(entityType = entityType, entityId = entityId)
+
+        return request<Unit, ApiResponseListMediaAssetDTO>(
+            localVariableConfig
+        )
+    }
+
+    /**
+     * To obtain the request config of the operation getMediaForEntityApiV1MediaEntityEntityTypeEntityIdGet
+     *
+     * @param entityType
+     * @param entityId
+     * @return RequestConfig
+     */
+    fun getMediaForEntityApiV1MediaEntityEntityTypeEntityIdGetRequestConfig(entityType: MediaEntityType, entityId: java.util.UUID) : RequestConfig<Unit> {
+        val localVariableBody = null
+        val localVariableQuery: MultiValueMap = mutableMapOf()
+        val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Accept"] = "application/json"
+
+        return RequestConfig(
+            method = RequestMethod.GET,
+            path = "/api/v1/media/entity/{entity_type}/{entity_id}"
+                .replace("{"+"entity_type"+"}", encodeURIComponent(entityType.toString()))
+                .replace("{"+"entity_id"+"}", encodeURIComponent(entityId.toString())),
+            query = localVariableQuery,
+            headers = localVariableHeaders,
+            requiresAuthentication = false,
+            body = localVariableBody
+        )
+    }
+
+    /**
      * Search Media
-     * 
+     *
      * @param entityType  (optional)
      * @param entityId  (optional)
      * @param isPublic  (optional)

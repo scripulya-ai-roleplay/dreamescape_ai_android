@@ -16,7 +16,7 @@ import org.openapitools.client.apis.MediaApi
 import org.openapitools.client.apis.MessagesApi
 import org.openapitools.client.apis.ScenesApi
 import org.openapitools.client.models.ApiResponsePageChat
-import org.openapitools.client.models.ApiResponsePageMediaAssetDTO
+import org.openapitools.client.models.ApiResponseListMediaAssetDTO
 import org.openapitools.client.models.ApiResponsePageMessage
 import org.openapitools.client.models.ApiResponseScene
 import org.openapitools.client.models.Chat
@@ -58,12 +58,11 @@ class ChatListViewModel(
     private val getSceneCall: (sceneId: UUID) -> ApiResponseScene = { sceneId ->
         ScenesApi().getSceneDetailsApiV1ScenesSceneIdGet(sceneId = sceneId)
     },
-    // Resolves the first media asset attached to a scene (its preview image).
-    private val sceneImageCall: (sceneId: UUID) -> ApiResponsePageMediaAssetDTO = { sceneId ->
-        MediaApi().searchMediaApiV1MediaGet(
+    // Resolves the newest media asset attached to a scene (its preview image).
+    private val sceneImageCall: (sceneId: UUID) -> ApiResponseListMediaAssetDTO = { sceneId ->
+        MediaApi().getMediaForEntityApiV1MediaEntityEntityTypeEntityIdGet(
             entityType = MediaEntityType.scene,
-            entityId = sceneId,
-            limit = 1
+            entityId = sceneId
         )
     },
     // Fetches a batch of messages across a scene's chats; the latest by
@@ -133,7 +132,7 @@ class ChatListViewModel(
         val sceneName = runCatching { getSceneCall(group.sceneId).result.title }.getOrNull()
 
         val imageUrl = runCatching {
-            sceneImageCall(group.sceneId).result.items.firstOrNull()?.url
+            sceneImageCall(group.sceneId).result.firstOrNull()?.url
         }.getOrNull()
 
         val preview = if (group.chatIds.isEmpty()) {

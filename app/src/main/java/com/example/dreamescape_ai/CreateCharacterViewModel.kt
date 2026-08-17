@@ -163,8 +163,10 @@ class CreateCharacterViewModel(
                         ?: findCreatedId(character.name)
                             ?: throw IOException("Created, but couldn't attach images (character id not found)")
                     createdEntityId = entityId
-                    // Upload in order: the first uploaded image becomes the preview.
-                    for (uri in pending) {
+                    // The backend serves an entity's media newest-first and every
+                    // reader takes the first asset as the preview, so the first
+                    // picked image must be uploaded LAST (it ends up newest).
+                    for (uri in pending.asReversed()) {
                         if (uri in uploadedUris) continue
                         uploadImage(entityId, uri, state.isPublic)
                         uploadedUris.add(uri)

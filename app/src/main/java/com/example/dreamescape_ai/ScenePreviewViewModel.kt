@@ -16,9 +16,9 @@ import org.openapitools.client.apis.ScenesApi
 import org.openapitools.client.models.ApiResponseBookmarkState
 import org.openapitools.client.models.ApiResponseLikeState
 import org.openapitools.client.models.ApiResponseListCharacter
+import org.openapitools.client.models.ApiResponseListMediaAssetDTO
 import org.openapitools.client.models.ApiResponsePageCharacter
 import org.openapitools.client.models.ApiResponsePageChat
-import org.openapitools.client.models.ApiResponsePageMediaAssetDTO
 import org.openapitools.client.models.ApiResponseScene
 import org.openapitools.client.models.AttachCharactersDTO
 import org.openapitools.client.models.Character
@@ -71,8 +71,10 @@ class ScenePreviewViewModel(
     private val getSceneCall: (UUID) -> ApiResponseScene = { id ->
         ScenesApi().getSceneDetailsApiV1ScenesSceneIdGet(sceneId = id)
     },
-    private val sceneImageCall: (UUID) -> ApiResponsePageMediaAssetDTO = { entityId ->
-        MediaApi().searchMediaApiV1MediaGet(entityType = MediaEntityType.scene, entityId = entityId, limit = 1)
+    private val sceneImageCall: (UUID) -> ApiResponseListMediaAssetDTO = { entityId ->
+        MediaApi().getMediaForEntityApiV1MediaEntityEntityTypeEntityIdGet(
+            entityType = MediaEntityType.scene, entityId = entityId
+        )
     },
     // The scene's cast: characters attached to it (POST /scenes/{id}/characters),
     // read back through GET /scenes/{id}/characters — the source of truth, not the
@@ -80,8 +82,10 @@ class ScenePreviewViewModel(
     private val getSceneCharactersCall: (sceneId: UUID) -> ApiResponseListCharacter = { id ->
         ScenesApi().getSceneCharactersApiV1ScenesSceneIdCharactersGet(sceneId = id)
     },
-    private val characterImageCall: (UUID) -> ApiResponsePageMediaAssetDTO = { entityId ->
-        MediaApi().searchMediaApiV1MediaGet(entityType = MediaEntityType.character, entityId = entityId, limit = 1)
+    private val characterImageCall: (UUID) -> ApiResponseListMediaAssetDTO = { entityId ->
+        MediaApi().getMediaForEntityApiV1MediaEntityEntityTypeEntityIdGet(
+            entityType = MediaEntityType.character, entityId = entityId
+        )
     },
     // Like / bookmark engagement with this scene.
     private val getLikeStateCall: (UUID) -> ApiResponseLikeState = { id ->
@@ -399,7 +403,7 @@ class ScenePreviewViewModel(
         }
         viewModelScope.launch(ioDispatcher) {
             val url = try {
-                sceneImageCall(sceneId).result.items.firstOrNull()?.url
+                sceneImageCall(sceneId).result.firstOrNull()?.url
             } catch (_: Exception) {
                 null
             }
@@ -429,7 +433,7 @@ class ScenePreviewViewModel(
             for (card in cards) {
                 val characterId = card.character.id ?: continue
                 val url = try {
-                    characterImageCall(characterId).result.items.firstOrNull()?.url
+                    characterImageCall(characterId).result.firstOrNull()?.url
                 } catch (_: Exception) {
                     null
                 }

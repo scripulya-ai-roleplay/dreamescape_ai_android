@@ -14,7 +14,6 @@ import kotlinx.coroutines.launch
 import org.openapitools.client.apis.MediaApi
 import org.openapitools.client.apis.ScenesApi
 import org.openapitools.client.apis.UsersApi
-import org.openapitools.client.models.ApiResponsePageMediaAssetDTO
 import org.openapitools.client.models.ApiResponsePageScene
 import org.openapitools.client.models.ApiResponsePageUser
 import org.openapitools.client.models.MediaEntityType
@@ -55,11 +54,10 @@ class DiscoveryViewModel(
         UsersApi().searchUsersUsersSearchGet(userIds = ids, limit = ids.size)
     },
     private val sceneCover: (sceneId: UUID) -> String? = { id ->
-        MediaApi().searchMediaApiV1MediaGet(
+        MediaApi().getMediaForEntityApiV1MediaEntityEntityTypeEntityIdGet(
             entityType = MediaEntityType.scene,
-            entityId = id,
-            limit = 1
-        ).result.items.firstOrNull()?.url
+            entityId = id
+        ).result.firstOrNull()?.url
     },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {

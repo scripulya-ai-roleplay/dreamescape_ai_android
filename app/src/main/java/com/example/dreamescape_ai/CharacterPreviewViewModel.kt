@@ -13,7 +13,7 @@ import org.openapitools.client.apis.MediaApi
 import org.openapitools.client.models.ApiResponseBookmarkState
 import org.openapitools.client.models.ApiResponseCharacter
 import org.openapitools.client.models.ApiResponseLikeState
-import org.openapitools.client.models.ApiResponsePageMediaAssetDTO
+import org.openapitools.client.models.ApiResponseListMediaAssetDTO
 import org.openapitools.client.models.Character
 import org.openapitools.client.models.MediaEntityType
 import java.util.UUID
@@ -36,8 +36,10 @@ class CharacterPreviewViewModel(
     private val getCharacterCall: (UUID) -> ApiResponseCharacter = { id ->
         CharactersApi().getCharacterDetailsApiV1CharactersCharacterIdGet(characterId = id)
     },
-    private val portraitImageCall: (UUID) -> ApiResponsePageMediaAssetDTO = { entityId ->
-        MediaApi().searchMediaApiV1MediaGet(entityType = MediaEntityType.character, entityId = entityId, limit = 1)
+    private val portraitImageCall: (UUID) -> ApiResponseListMediaAssetDTO = { entityId ->
+        MediaApi().getMediaForEntityApiV1MediaEntityEntityTypeEntityIdGet(
+            entityType = MediaEntityType.character, entityId = entityId
+        )
     },
     // Like / bookmark engagement with this character.
     private val getLikeStateCall: (UUID) -> ApiResponseLikeState = { id ->
@@ -97,7 +99,7 @@ class CharacterPreviewViewModel(
         }
         viewModelScope.launch(ioDispatcher) {
             val url = try {
-                portraitImageCall(characterId).result.items.firstOrNull()?.url
+                portraitImageCall(characterId).result.firstOrNull()?.url
             } catch (_: Exception) {
                 null
             }

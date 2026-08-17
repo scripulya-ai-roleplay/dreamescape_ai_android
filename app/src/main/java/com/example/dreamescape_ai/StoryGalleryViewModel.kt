@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.openapitools.client.apis.MediaApi
 import org.openapitools.client.apis.ScenesApi
-import org.openapitools.client.models.ApiResponsePageMediaAssetDTO
+import org.openapitools.client.models.ApiResponseListMediaAssetDTO
 import org.openapitools.client.models.ApiResponsePageScene
 import org.openapitools.client.models.MediaEntityType
 import org.openapitools.client.models.Scene
@@ -34,8 +34,10 @@ class StoryGalleryViewModel(
     private val searchScenesCall: (title: List<String>?, offset: Int?, limit: Int?) -> ApiResponsePageScene = { title, offset, limit ->
         ScenesApi().searchSceneApiV1ScenesGet(title = title, offset = offset, limit = limit)
     },
-    private val sceneImageCall: (entityId: UUID) -> ApiResponsePageMediaAssetDTO = { entityId ->
-        MediaApi().searchMediaApiV1MediaGet(entityType = MediaEntityType.scene, entityId = entityId, limit = 1)
+    private val sceneImageCall: (entityId: UUID) -> ApiResponseListMediaAssetDTO = { entityId ->
+        MediaApi().getMediaForEntityApiV1MediaEntityEntityTypeEntityIdGet(
+            entityType = MediaEntityType.scene, entityId = entityId
+        )
     },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
@@ -79,7 +81,7 @@ class StoryGalleryViewModel(
             for (card in cards) {
                 val sceneId = card.scene.id ?: continue
                 val url = try {
-                    sceneImageCall(sceneId).result.items.firstOrNull()?.url
+                    sceneImageCall(sceneId).result.firstOrNull()?.url
                 } catch (_: Exception) {
                     null
                 }

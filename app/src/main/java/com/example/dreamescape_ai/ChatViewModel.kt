@@ -28,7 +28,7 @@ import org.openapitools.client.models.ApiResponseMessage
 import org.openapitools.client.models.BodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost
 import org.openapitools.client.models.BodyUpdateMessageApiV1MessagesMessageIdPut
 import org.openapitools.client.models.InitialMessage
-import org.openapitools.client.models.ApiResponsePageMediaAssetDTO
+import org.openapitools.client.models.ApiResponseListMediaAssetDTO
 import org.openapitools.client.models.ApiResponsePageMessage
 import org.openapitools.client.models.ChatRoles
 import org.openapitools.client.models.LLMModelType
@@ -81,12 +81,11 @@ class ChatViewModel(
     private val getChatCall: (chatId: UUID) -> ApiResponseChat = { id ->
         ChatsApi().getChatDetailsApiV1ChatsChatIdGet(chatId = id)
     },
-    // Resolves the first media asset attached to a scene (its preview image).
-    private val sceneImageCall: (sceneId: UUID) -> ApiResponsePageMediaAssetDTO = { sceneId ->
-        MediaApi().searchMediaApiV1MediaGet(
+    // Resolves the newest media asset attached to a scene (its preview image).
+    private val sceneImageCall: (sceneId: UUID) -> ApiResponseListMediaAssetDTO = { sceneId ->
+        MediaApi().getMediaForEntityApiV1MediaEntityEntityTypeEntityIdGet(
             entityType = MediaEntityType.scene,
-            entityId = sceneId,
-            limit = 1
+            entityId = sceneId
         )
     },
     private val sendMessageCall: (SendMessageRequest) -> ApiResponseMessage = { dto ->
@@ -185,7 +184,7 @@ class ChatViewModel(
                 return@launch
             }
             val imageUrl = try {
-                sceneImageCall(chat.sceneId).result.items.firstOrNull()?.url
+                sceneImageCall(chat.sceneId).result.firstOrNull()?.url
             } catch (_: Exception) {
                 null
             }

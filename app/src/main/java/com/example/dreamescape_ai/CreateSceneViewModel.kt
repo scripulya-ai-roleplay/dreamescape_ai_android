@@ -205,9 +205,11 @@ class CreateSceneViewModel(
                         ?: findCreatedId(scene.title)
                             ?: throw IOException("Created, but couldn't attach images (scene id not found)")
                     createdEntityId = entityId
-                    // Upload in order: the first uploaded image becomes the preview.
+                    // The backend serves an entity's media newest-first and every
+                    // reader takes the first asset as the preview, so the first
+                    // picked image must be uploaded LAST (it ends up newest).
                     // Scenes have no privacy field; their media defaults to public.
-                    for (uri in pending) {
+                    for (uri in pending.asReversed()) {
                         if (uri in uploadedUris) continue
                         uploadImage(entityId, uri, true)
                         uploadedUris.add(uri)

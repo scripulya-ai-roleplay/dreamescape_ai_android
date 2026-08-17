@@ -13,8 +13,8 @@ import kotlinx.coroutines.launch
 import org.openapitools.client.apis.CharactersApi
 import org.openapitools.client.apis.MediaApi
 import org.openapitools.client.apis.ScenesApi
+import org.openapitools.client.models.ApiResponseListMediaAssetDTO
 import org.openapitools.client.models.ApiResponsePageCharacter
-import org.openapitools.client.models.ApiResponsePageMediaAssetDTO
 import org.openapitools.client.models.ApiResponsePageScene
 import org.openapitools.client.models.Character
 import org.openapitools.client.models.MediaEntityType
@@ -65,11 +65,15 @@ class MyContentViewModel(
         { ownerIds, offset, limit ->
             CharactersApi().searchCharacterApiV1CharactersGet(ownerIds = ownerIds, offset = offset, limit = limit)
         },
-    private val sceneCover: (sceneId: UUID) -> ApiResponsePageMediaAssetDTO = { id ->
-        MediaApi().searchMediaApiV1MediaGet(entityType = MediaEntityType.scene, entityId = id, limit = 1)
+    private val sceneCover: (sceneId: UUID) -> ApiResponseListMediaAssetDTO = { id ->
+        MediaApi().getMediaForEntityApiV1MediaEntityEntityTypeEntityIdGet(
+            entityType = MediaEntityType.scene, entityId = id
+        )
     },
-    private val characterPortrait: (characterId: UUID) -> ApiResponsePageMediaAssetDTO = { id ->
-        MediaApi().searchMediaApiV1MediaGet(entityType = MediaEntityType.character, entityId = id, limit = 1)
+    private val characterPortrait: (characterId: UUID) -> ApiResponseListMediaAssetDTO = { id ->
+        MediaApi().getMediaForEntityApiV1MediaEntityEntityTypeEntityIdGet(
+            entityType = MediaEntityType.character, entityId = id
+        )
     },
     private val deleteScene: (sceneId: UUID) -> ModelApiResponse = { id ->
         ScenesApi().deleteSceneApiV1ScenesSceneIdDelete(sceneId = id)
@@ -165,8 +169,8 @@ class MyContentViewModel(
                 val entityId = runCatching { UUID.fromString(card.id) }.getOrNull() ?: continue
                 val url = try {
                     when (mode) {
-                        OwnedMode.SCENES -> sceneCover(entityId).result.items.firstOrNull()?.url
-                        OwnedMode.CHARACTERS -> characterPortrait(entityId).result.items.firstOrNull()?.url
+                        OwnedMode.SCENES -> sceneCover(entityId).result.firstOrNull()?.url
+                        OwnedMode.CHARACTERS -> characterPortrait(entityId).result.firstOrNull()?.url
                     }
                 } catch (_: Exception) {
                     null
