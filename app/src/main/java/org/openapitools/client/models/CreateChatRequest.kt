@@ -24,14 +24,12 @@ import com.squareup.moshi.JsonClass
  *
  * @param title 
  * @param userId 
- * @param id 
  * @param sceneId 
  * @param userCharacterId 
- * @param initialMessageId 
  */
 
 
-data class Chat (
+data class CreateChatRequest (
 
     @Json(name = "title")
     val title: kotlin.String,
@@ -39,19 +37,13 @@ data class Chat (
     @Json(name = "user_id")
     val userId: java.util.UUID,
 
-    @Json(name = "id")
-    val id: java.util.UUID? = null,
-
     @Json(name = "scene_id")
-    val sceneId: java.util.UUID? = null,
+    val sceneId: java.util.UUID,
 
     @Json(name = "user_character_id")
-    val userCharacterId: java.util.UUID? = null,
+    val userCharacterId: java.util.UUID? = null
 
-    @Json(name = "initial_message_id")
-    val initialMessageId: java.util.UUID? = null
-
-) {
+) : kotlin.collections.HashMap<String, kotlin.Any>() {
 
 
 }

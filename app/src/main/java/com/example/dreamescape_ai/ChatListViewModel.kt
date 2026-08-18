@@ -36,18 +36,25 @@ data class ChatListUiState(
  * are collapsed into a single group; selecting it opens [latestChat] (the most
  * recently created chat for that scene).
  *
+ * [sceneId] is null when the scene was deleted — the backend nulls the chat's
+ * scene_id (ON DELETE SET NULL) and keeps the chat readable. Such chats form
+ * their own "scene-less" group keyed by [listKey].
+ *
  * [sceneName], [sceneImageUrl] and [latestMessagePreview] are resolved
  * asynchronously after the groups are built and filled in as each lookup lands.
  */
 data class ChatGroup(
-    val sceneId: UUID,
+    val sceneId: UUID?,
     val chatIds: List<UUID>,
     val chatCount: Int,
     val latestChat: Chat,
     val sceneName: String? = null,
     val sceneImageUrl: String? = null,
     val latestMessagePreview: String? = null
-)
+) {
+    /** Stable LazyColumn key: scene id, or a sentinel for the scene-less group. */
+    val listKey: String get() = sceneId?.toString() ?: "no-scene"
+}
 
 class ChatListViewModel(
     private val userId: UUID = JwtTokenProvider().userId,
@@ -103,6 +110,7 @@ class ChatListViewModel(
      * Collapses [chats] into one group per scene, ordered most-recently-active
      * first. The backend lists chats oldest-first, so each group's last chat is
      * its newest — that is the [ChatGroup.latestChat] selecting the scene opens.
+     * Chats whose scene was deleted (null scene_id) share one group.
      */
     private fun groupByScene(chats: List<Chat>): List<ChatGroup> =
         chats.groupBy { it.sceneId }.values
@@ -129,6 +137,11 @@ class ChatListViewModel(
     }
 
     private suspend fun resolveGroup(group: ChatGroup) {
+        // Scene-less groups (deleted scene) have nothing to resolve against.
+        if (group.sceneId == null) {
+            updateGroup(group.sceneId) { it }
+            return
+        }
         val sceneName = runCatching { getSceneCall(group.sceneId).result.title }.getOrNull()
 
         val imageUrl = runCatching {
@@ -151,7 +164,7 @@ class ChatListViewModel(
         }
     }
 
-    private fun updateGroup(sceneId: UUID, transform: (ChatGroup) -> ChatGroup) {
+    private fun updateGroup(sceneId: UUID?, transform: (ChatGroup) -> ChatGroup) {
         _uiState.value = _uiState.value.copy(
             groups = _uiState.value.groups.map {
                 if (it.sceneId == sceneId) transform(it) else it

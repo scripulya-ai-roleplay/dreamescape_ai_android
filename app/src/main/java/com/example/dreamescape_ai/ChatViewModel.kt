@@ -183,15 +183,22 @@ class ChatViewModel(
                 _uiState.value = _uiState.value.copy(sceneImageResolved = true)
                 return@launch
             }
-            val imageUrl = try {
-                sceneImageCall(chat.sceneId).result.firstOrNull()?.url
-            } catch (_: Exception) {
+            // A null sceneId means the scene was deleted; the chat is read-only
+            // and has no background or greetings to resolve.
+            val sceneId = chat.sceneId
+            val imageUrl = if (sceneId == null) {
                 null
+            } else {
+                try {
+                    sceneImageCall(sceneId).result.firstOrNull()?.url
+                } catch (_: Exception) {
+                    null
+                }
             }
-            val needsGreeting = chat.initialMessageId == null
+            val needsGreeting = chat.initialMessageId == null && sceneId != null
             val greetings = if (needsGreeting) {
                 try {
-                    getSceneInitialMessagesCall(chat.sceneId).result
+                    getSceneInitialMessagesCall(sceneId).result
                 } catch (_: Exception) {
                     emptyList()
                 }

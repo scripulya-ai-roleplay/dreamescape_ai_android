@@ -344,6 +344,48 @@ class ChatViewModelTest {
         assertFalse(viewModel.uiState.value.needsInitialMessage) // gate cleared after reload
     }
 
+    @Test
+    fun `loadChat with deleted scene resolves no background and no greetings`() = runTest {
+        var sceneLookups = 0
+        val viewModel = ChatViewModel(
+            chatId = testChatId,
+            loadMessagesCall = { createPage(emptyList()) },
+            sendMessageCall = { messageResponse(it.message) },
+            // A chat whose scene was deleted → scene_id null, read-only.
+            getChatCall = {
+                ApiResponseChat(
+                    result = Chat(
+                        title = "Chat",
+                        userId = UUID.fromString("00000000-0000-0000-0000-0000000000cc"),
+                        sceneId = null,
+                        id = testChatId,
+                        initialMessageId = null
+                    )
+                )
+            },
+            sceneImageCall = { _ ->
+                sceneLookups++
+                throw RuntimeException("no network in tests")
+            },
+            getSceneInitialMessagesCall = { _ ->
+                sceneLookups++
+                throw RuntimeException("no network in tests")
+            },
+            ioDispatcher = testDispatcher,
+            modelFlow = flowOf(LLMModelType.testing_mock),
+            waitForReply = { _, _ -> }
+        )
+
+        viewModel.loadChat()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.sceneImageUrl)
+        assertTrue(viewModel.uiState.value.sceneImageResolved)
+        // A scene-less chat cannot offer greetings; the gate must not open.
+        assertFalse(viewModel.uiState.value.needsInitialMessage)
+        assertEquals(0, sceneLookups) // no scene-dependent lookups were made
+    }
+
     // ---- per-token streaming (word-by-word reveal of token / generation_* / message frames) ----
 
     private fun tokenFrame(chunk: String): String =

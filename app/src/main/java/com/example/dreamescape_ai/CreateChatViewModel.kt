@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.openapitools.client.apis.ChatsApi
-import org.openapitools.client.models.Chat
+import org.openapitools.client.models.CreateChatRequest
 import org.openapitools.client.models.ModelApiResponse
 import java.util.UUID
 
@@ -23,12 +23,11 @@ data class CreateChatUiState(
 
 class CreateChatViewModel(
     private val sceneId: UUID,
-    private val createChatCall: (Chat) -> ModelApiResponse = { chat ->
-        ChatsApi().createChatApiV1ChatsPost(chat)
+    private val createChatCall: (CreateChatRequest) -> ModelApiResponse = { request ->
+        ChatsApi().createChatApiV1ChatsPost(request)
     },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val userId: UUID = JwtTokenProvider().userId,
-    private val chatIdProvider: () -> UUID = { UUID.randomUUID() }
+    private val userId: UUID = JwtTokenProvider().userId
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CreateChatUiState())
@@ -49,23 +48,21 @@ class CreateChatViewModel(
             return
         }
 
-        // A client id is attached to the request body, but the backend generates
-        // and persists its OWN id (returned in the response) — it does not honor
-        // the one we send. We must navigate using the server id, or subsequent
-        // calls (messages, events) would target a non-existent chat and 404.
-        val newChatId = chatIdProvider()
-        val chat = Chat(
+        // The backend generates and persists its OWN chat id (returned in the
+        // response) — the request body no longer carries one. We must navigate
+        // using the server id, or subsequent calls (messages, events) would
+        // target a non-existent chat and 404.
+        val request = CreateChatRequest(
             title = _uiState.value.title.trim(),
             userId = userId,
-            sceneId = sceneId,
-            id = newChatId
+            sceneId = sceneId
         )
 
         _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
 
         viewModelScope.launch(ioDispatcher) {
             try {
-                val response = createChatCall(chat)
+                val response = createChatCall(request)
                 val serverChatId = extractCreatedChatId(response)
                 if (serverChatId == null) {
                     _uiState.value = _uiState.value.copy(

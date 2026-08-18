@@ -167,4 +167,27 @@ class ChatListViewModelTest {
         assertFalse(viewModel.uiState.value.isLoading)
         assertNull(viewModel.uiState.value.errorMessage)
     }
+
+    @Test
+    fun `chats with deleted scene form their own group and do not resolve scene details`() = runTest {
+        val scenelessChat = Chat(
+            title = "Orphaned Chat",
+            userId = testUserId,
+            sceneId = null,
+            id = UUID.fromString("00000000-0000-0000-0000-000000000012")
+        )
+        val viewModel = createViewModel { _, _, _ ->
+            createResponse(testChats + scenelessChat)
+        }
+
+        viewModel.loadChats()
+        advanceUntilIdle()
+
+        val groups = viewModel.uiState.value.groups
+        assertEquals(2, groups.size)
+        val orphanGroup = groups.first { it.sceneId == null }
+        assertEquals(1, orphanGroup.chatCount)
+        assertEquals(scenelessChat.id, orphanGroup.chatIds.single())
+        assertEquals("no-scene", orphanGroup.listKey)
+    }
 }

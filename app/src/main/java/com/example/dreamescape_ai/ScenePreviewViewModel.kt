@@ -20,9 +20,9 @@ import org.openapitools.client.models.ApiResponseListMediaAssetDTO
 import org.openapitools.client.models.ApiResponsePageCharacter
 import org.openapitools.client.models.ApiResponsePageChat
 import org.openapitools.client.models.ApiResponseScene
+import org.openapitools.client.models.CreateChatRequest
 import org.openapitools.client.models.AttachCharactersDTO
 import org.openapitools.client.models.Character
-import org.openapitools.client.models.Chat
 import org.openapitools.client.models.MediaEntityType
 import org.openapitools.client.models.MediaLayer
 import org.openapitools.client.models.ModelApiResponse
@@ -129,10 +129,9 @@ class ScenePreviewViewModel(
     private val searchChatsCall: (userIds: List<UUID>?, offset: Int?, limit: Int?) -> ApiResponsePageChat = { userIds, offset, limit ->
         ChatsApi().searchChatsApiV1ChatsGet(userIds = userIds, offset = offset, limit = limit)
     },
-    private val createChatCall: (Chat) -> ModelApiResponse = { chat ->
-        ChatsApi().createChatApiV1ChatsPost(chat)
+    private val createChatCall: (CreateChatRequest) -> ModelApiResponse = { request ->
+        ChatsApi().createChatApiV1ChatsPost(request)
     },
-    private val chatIdProvider: () -> UUID = { UUID.randomUUID() },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
 
@@ -180,15 +179,14 @@ class ScenePreviewViewModel(
         viewModelScope.launch(ioDispatcher) {
             try {
                 val title = "Chat #${countExistingChats() + 1}"
-                val chat = Chat(
+                val request = CreateChatRequest(
                     title = title,
                     userId = userId,
                     sceneId = sceneId,
                     // Persona chosen in the picker (null = play as a generic user).
-                    userCharacterId = _uiState.value.selectedCharacterId,
-                    id = chatIdProvider()
+                    userCharacterId = _uiState.value.selectedCharacterId
                 )
-                val response = createChatCall(chat)
+                val response = createChatCall(request)
                 val serverChatId = extractCreatedChatId(response)
                 if (serverChatId == null) {
                     _uiState.value = _uiState.value.copy(

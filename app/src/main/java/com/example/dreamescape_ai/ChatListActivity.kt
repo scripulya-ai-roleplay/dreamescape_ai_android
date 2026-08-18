@@ -154,7 +154,7 @@ fun ChatListScreen(
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(uiState.groups, key = { it.sceneId }) { group ->
+                    items(uiState.groups, key = { it.listKey }) { group ->
                         ChatGroupItem(
                             group = group,
                             onClick = { onChatClick(group.latestChat) },
@@ -317,6 +317,7 @@ private fun SceneChatsOverlay(
     val sceneChats = remember(chats, group.sceneId) {
         chats.filter { it.sceneId == group.sceneId }.asReversed()
     }
+    val overlayTitle = group.sceneName ?: group.latestChat.title
     Column(modifier = modifier.fillMaxSize().background(BlueVoid)) {
         Row(
             modifier = Modifier
@@ -332,7 +333,7 @@ private fun SceneChatsOverlay(
                 )
             }
             Text(
-                text = group.sceneName ?: group.latestChat.title,
+                text = overlayTitle,
                 color = ScripulyaText,
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleLarge,

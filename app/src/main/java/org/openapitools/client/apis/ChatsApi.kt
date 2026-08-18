@@ -25,7 +25,7 @@ import org.openapitools.client.models.ApiResponsePageChat
 import org.openapitools.client.models.BodyChooseChatInitialMessageApiV1ChatsChatIdInitialMessagePost
 import org.openapitools.client.models.BodySetChatPersonaApiV1ChatsChatIdPersonaPost
 import org.openapitools.client.models.BodyUpdateChatApiV1ChatsUpdateChatIdPost
-import org.openapitools.client.models.Chat
+import org.openapitools.client.models.CreateChatRequest
 import org.openapitools.client.models.HTTPValidationError
 import org.openapitools.client.models.ModelApiResponse
 
@@ -131,7 +131,7 @@ class ChatsApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient =
     /**
      * Create Chat
      * 
-     * @param chat 
+     * @param createChatRequest 
      * @return ModelApiResponse
      * @throws IllegalStateException If the request is not correctly configured
      * @throws IOException Rethrows the OkHttp execute method exception
@@ -141,8 +141,8 @@ class ChatsApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient =
      */
     @Suppress("UNCHECKED_CAST")
     @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
-    fun createChatApiV1ChatsPost(chat: Chat) : ModelApiResponse {
-        val localVarResponse = createChatApiV1ChatsPostWithHttpInfo(chat = chat)
+    fun createChatApiV1ChatsPost(createChatRequest: CreateChatRequest) : ModelApiResponse {
+        val localVarResponse = createChatApiV1ChatsPostWithHttpInfo(createChatRequest = createChatRequest)
 
         return when (localVarResponse.responseType) {
             ResponseType.Success -> (localVarResponse as Success<*>).data as ModelApiResponse
@@ -162,17 +162,17 @@ class ChatsApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient =
     /**
      * Create Chat
      * 
-     * @param chat 
+     * @param createChatRequest 
      * @return ApiResponse<ModelApiResponse?>
      * @throws IllegalStateException If the request is not correctly configured
      * @throws IOException Rethrows the OkHttp execute method exception
      */
     @Suppress("UNCHECKED_CAST")
     @Throws(IllegalStateException::class, IOException::class)
-    fun createChatApiV1ChatsPostWithHttpInfo(chat: Chat) : ApiResponse<ModelApiResponse?> {
-        val localVariableConfig = createChatApiV1ChatsPostRequestConfig(chat = chat)
+    fun createChatApiV1ChatsPostWithHttpInfo(createChatRequest: CreateChatRequest) : ApiResponse<ModelApiResponse?> {
+        val localVariableConfig = createChatApiV1ChatsPostRequestConfig(createChatRequest = createChatRequest)
 
-        return request<Chat, ModelApiResponse>(
+        return request<CreateChatRequest, ModelApiResponse>(
             localVariableConfig
         )
     }
@@ -180,11 +180,11 @@ class ChatsApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClient =
     /**
      * To obtain the request config of the operation createChatApiV1ChatsPost
      *
-     * @param chat 
+     * @param createChatRequest 
      * @return RequestConfig
      */
-    fun createChatApiV1ChatsPostRequestConfig(chat: Chat) : RequestConfig<Chat> {
-        val localVariableBody = chat
+    fun createChatApiV1ChatsPostRequestConfig(createChatRequest: CreateChatRequest) : RequestConfig<CreateChatRequest> {
+        val localVariableBody = createChatRequest
         val localVariableQuery: MultiValueMap = mutableMapOf()
         val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
         localVariableHeaders["Content-Type"] = "application/json"

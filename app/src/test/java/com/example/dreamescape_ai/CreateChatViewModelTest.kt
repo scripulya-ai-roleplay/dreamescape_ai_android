@@ -13,7 +13,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
-import org.openapitools.client.models.Chat
+import org.openapitools.client.models.CreateChatRequest
 import org.openapitools.client.models.ModelApiResponse
 import java.util.UUID
 
@@ -37,14 +37,13 @@ class CreateChatViewModelTest {
     }
 
     private fun createViewModel(
-        onCreateChat: (Chat) -> ModelApiResponse = { ModelApiResponse(result = "ok") }
+        onCreateChat: (CreateChatRequest) -> ModelApiResponse = { ModelApiResponse(result = "ok") }
     ): CreateChatViewModel {
         return CreateChatViewModel(
             sceneId = testSceneId,
             createChatCall = onCreateChat,
             ioDispatcher = testDispatcher,
-            userId = testUserId,
-            chatIdProvider = { fixedChatId }
+            userId = testUserId
         )
     }
 
@@ -136,10 +135,10 @@ class CreateChatViewModelTest {
     }
 
     @Test
-    fun `createChat builds chat with trimmed title, scene, user and generated id`() = runTest {
-        var capturedChat: Chat? = null
-        val viewModel = createViewModel { chat ->
-            capturedChat = chat
+    fun `createChat builds request with trimmed title, scene and user`() = runTest {
+        var capturedRequest: CreateChatRequest? = null
+        val viewModel = createViewModel { request ->
+            capturedRequest = request
             ModelApiResponse(result = "created")
         }
         viewModel.onTitleChanged("  My Chat  ")
@@ -147,9 +146,8 @@ class CreateChatViewModelTest {
         viewModel.createChat()
         advanceUntilIdle()
 
-        assertEquals("My Chat", capturedChat?.title)
-        assertEquals(testSceneId, capturedChat?.sceneId)
-        assertEquals(testUserId, capturedChat?.userId)
-        assertEquals(fixedChatId, capturedChat?.id)
+        assertEquals("My Chat", capturedRequest?.title)
+        assertEquals(testSceneId, capturedRequest?.sceneId)
+        assertEquals(testUserId, capturedRequest?.userId)
     }
 }
