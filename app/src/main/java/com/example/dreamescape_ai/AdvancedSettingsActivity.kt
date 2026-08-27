@@ -41,8 +41,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
+import com.example.dreamescape_ai.auth.SessionManager
 import com.example.dreamescape_ai.data.BackendConfig
 import com.example.dreamescape_ai.ui.components.scripPanel
 import com.example.dreamescape_ai.ui.theme.Dreamescape_aiTheme
@@ -103,8 +105,9 @@ private fun AdvancedSettingsScreen(modifier: Modifier = Modifier) {
     var loaded by remember { mutableStateOf(BackendConfig.DEFAULT_BACKEND_BASE_URL) }
     var showRestartDialog by remember { mutableStateOf(false) }
 
-    var jwtText by remember { mutableStateOf(BackendConfig.DEFAULT_JWT_SECRET) }
-    var jwtLoaded by remember { mutableStateOf(BackendConfig.DEFAULT_JWT_SECRET) }
+    var usernameText by remember { mutableStateOf(BackendConfig.DEFAULT_USERNAME) }
+    var passwordText by remember { mutableStateOf(BackendConfig.DEFAULT_PASSWORD) }
+    var accountLoaded by remember { mutableStateOf(BackendConfig.Account(BackendConfig.DEFAULT_USERNAME, BackendConfig.DEFAULT_PASSWORD)) }
 
     var minioText by remember { mutableStateOf(BackendConfig.DEFAULT_MINIO_BASE_URL) }
     var minioLoaded by remember { mutableStateOf(BackendConfig.DEFAULT_MINIO_BASE_URL) }
@@ -114,9 +117,10 @@ private fun AdvancedSettingsScreen(modifier: Modifier = Modifier) {
         val persistedUrl = BackendConfig.baseUrlFlow(context.applicationContext).first()
         loaded = persistedUrl
         text = persistedUrl
-        val persistedSecret = BackendConfig.jwtSecretFlow(context.applicationContext).first()
-        jwtLoaded = persistedSecret
-        jwtText = persistedSecret
+        val persistedAccount = BackendConfig.accountFlow(context.applicationContext).first()
+        accountLoaded = persistedAccount
+        usernameText = persistedAccount.username
+        passwordText = persistedAccount.password
         val persistedMinio = BackendConfig.minioBaseUrlFlow(context.applicationContext).first()
         minioLoaded = persistedMinio
         minioText = persistedMinio
@@ -126,9 +130,10 @@ private fun AdvancedSettingsScreen(modifier: Modifier = Modifier) {
     val isValid = isValidBackendUrl(normalized)
     val canSave = isValid && normalized != loaded
 
-    val jwtNormalized = jwtText.trim()
-    val jwtValid = jwtNormalized.isNotEmpty()
-    val jwtCanSave = jwtValid && jwtNormalized != jwtLoaded
+    val usernameNormalized = usernameText.trim()
+    val accountValid = usernameNormalized.isNotEmpty() && passwordText.isNotEmpty()
+    val accountChanged = usernameNormalized != accountLoaded.username || passwordText != accountLoaded.password
+    val accountCanSave = accountValid && accountChanged
 
     // Blank is valid (disables the override); otherwise must be a full http(s)://host.
     val minioNormalized = minioText.trim().trimEnd('/')
@@ -288,23 +293,46 @@ private fun AdvancedSettingsScreen(modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "JWT signing secret",
+                text = "Account",
                 color = ScripulyaText,
                 style = MaterialTheme.typography.titleMedium
             )
             OutlinedTextField(
-                value = jwtText,
-                onValueChange = { jwtText = it },
-                label = { Text("Secret key") },
-                placeholder = { Text(BackendConfig.DEFAULT_JWT_SECRET) },
+                value = usernameText,
+                onValueChange = { usernameText = it },
+                label = { Text("Username") },
+                placeholder = { Text(BackendConfig.DEFAULT_USERNAME) },
                 singleLine = true,
-                isError = jwtText.isNotEmpty() && !jwtValid,
+                isError = usernameText.isNotEmpty() && usernameNormalized.isEmpty(),
                 supportingText = {
                     Text(
-                        if (jwtText.isNotEmpty() && !jwtValid) {
-                            "Secret cannot be empty."
+                        if (usernameText.isNotEmpty() && usernameNormalized.isEmpty()) {
+                            "Username cannot be blank."
                         } else {
-                            "Shared HMAC secret used to self-sign each token. Must match the backend's JWT_SECRET_KEY."
+                            "Backend account the app logs in as (POST /api/v1/auth/login)."
+                        }
+                    )
+                },
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Next
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = passwordText,
+                onValueChange = { passwordText = it },
+                label = { Text("Password") },
+                placeholder = { Text(BackendConfig.DEFAULT_PASSWORD) },
+                singleLine = true,
+                isError = passwordText.isNotEmpty() && !accountValid,
+                visualTransformation = PasswordVisualTransformation(),
+                supportingText = {
+                    Text(
+                        if (passwordText.isNotEmpty() && passwordText.isBlank()) {
+                            "Password cannot be blank."
+                        } else {
+                            "Exchanged for a short-lived server token; the signing secret never leaves the backend."
                         }
                     )
                 },
@@ -322,26 +350,35 @@ private fun AdvancedSettingsScreen(modifier: Modifier = Modifier) {
                 Button(
                     onClick = {
                         scope.launch {
-                            BackendConfig.setJwtSecret(context.applicationContext, jwtNormalized)
-                            jwtText = jwtNormalized
-                            jwtLoaded = jwtNormalized
+                            BackendConfig.setAccount(
+                                context.applicationContext,
+                                usernameNormalized,
+                                passwordText
+                            )
+                            accountLoaded = BackendConfig.Account(usernameNormalized, passwordText)
+                            SessionManager.updateCredentials(usernameNormalized, passwordText)
                             showRestartDialog = true
                         }
                     },
-                    enabled = jwtCanSave,
+                    enabled = accountCanSave,
                     modifier = Modifier.weight(1f)
                 ) { Text("Save") }
                 OutlinedButton(
-                    onClick = { jwtText = BackendConfig.DEFAULT_JWT_SECRET },
-                    enabled = jwtNormalized != BackendConfig.DEFAULT_JWT_SECRET,
+                    onClick = {
+                        usernameText = BackendConfig.DEFAULT_USERNAME
+                        passwordText = BackendConfig.DEFAULT_PASSWORD
+                    },
+                    enabled = usernameNormalized != BackendConfig.DEFAULT_USERNAME ||
+                        passwordText != BackendConfig.DEFAULT_PASSWORD,
                     modifier = Modifier.weight(1f)
                 ) { Text("Reset to default") }
             }
         }
 
         Text(
-            text = "Every request self-signs a fresh token with this secret. If it " +
-                "doesn't match the backend's JWT_SECRET_KEY, requests fail with 401. " +
+            text = "The app logs in with these credentials and sends the " +
+                "server-issued token with every request, refreshing it before it " +
+                "expires. Wrong credentials fail with 401 on the next request. " +
                 "A change takes effect after restart.",
             color = ScripulyaTextDim,
             style = MaterialTheme.typography.bodySmall

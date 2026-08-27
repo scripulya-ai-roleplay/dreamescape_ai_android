@@ -61,6 +61,7 @@ dependencies {
     // to throw "not mocked". This provides a working implementation on the test
     // classpath so JSON-parsing paths (e.g. SSE token/message frames) are testable.
     testImplementation("org.json:json:20240303")
+    testImplementation(libs.mockwebserver)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

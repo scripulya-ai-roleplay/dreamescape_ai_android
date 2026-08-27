@@ -2,7 +2,7 @@ package com.example.dreamescape_ai
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.dreamescape_ai.auth.JwtTokenProvider
+import com.example.dreamescape_ai.auth.SessionManager
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -125,7 +125,7 @@ class ScenePreviewViewModel(
             attachCharactersDTO = AttachCharactersDTO(characterIds = ids)
         )
     },
-    private val userId: UUID = JwtTokenProvider().userId,
+    private val userId: UUID = SessionManager.userId,
     private val searchChatsCall: (userIds: List<UUID>?, offset: Int?, limit: Int?) -> ApiResponsePageChat = { userIds, offset, limit ->
         ChatsApi().searchChatsApiV1ChatsGet(userIds = userIds, offset = offset, limit = limit)
     },

@@ -22,7 +22,7 @@ import java.io.IOException
  * `format: binary`, so the generator never emits a binary part) — the same quirk
  * as [MediaUploader]. So, like media uploads, we build the multipart body
  * ourselves, reuse the authed [ApiClient.defaultClient] (JWT is added by
- * [com.example.dreamescape_ai.auth.JwtAuthInterceptor]), and parse the JSON reply
+ * [com.example.dreamescape_ai.auth.AuthInterceptor]), and parse the JSON reply
  * with the shared [Serializer.moshi].
  */
 object SillyTavernImporter {

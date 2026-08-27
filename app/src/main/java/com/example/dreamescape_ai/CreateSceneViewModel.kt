@@ -2,7 +2,7 @@ package com.example.dreamescape_ai
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.dreamescape_ai.auth.JwtTokenProvider
+import com.example.dreamescape_ai.auth.SessionManager
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,11 +51,11 @@ class CreateSceneViewModel(
     private val uploadImage: (entityId: UUID, uri: String, isPublic: Boolean) -> Unit = { _, _, _ -> },
     private val findCreatedId: (title: String) -> UUID? = { title ->
         ScenesApi().searchSceneApiV1ScenesGet(
-            owner = listOf(JwtTokenProvider().userId), title = listOf(title), limit = 50
+            owner = listOf(SessionManager.userId), title = listOf(title), limit = 50
         ).result.items.lastOrNull { it.title == title }?.id
     },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val ownerId: UUID = JwtTokenProvider().userId
+    private val ownerId: UUID = SessionManager.userId
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CreateSceneUiState(isEdit = editId != null))

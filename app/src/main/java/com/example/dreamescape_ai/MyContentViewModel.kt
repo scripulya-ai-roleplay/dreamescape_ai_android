@@ -3,7 +3,7 @@ package com.example.dreamescape_ai
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.dreamescape_ai.auth.JwtTokenProvider
+import com.example.dreamescape_ai.auth.SessionManager
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,13 +50,13 @@ data class MyContentUiState(
 
 /**
  * Backs the "My Characters" / "My Scenes" waterfalls. Fetches the current
- * user's own content (filtered by owner via the JWT `sub` claim — see
- * [JwtTokenProvider.userId]), maps it to [OwnedCard]s, resolves each item's
+ * user's own content (filtered by owner via the login token's `user_id` claim
+ * — see [SessionManager.userId]), maps it to [OwnedCard]s, resolves each item's
  * cover image lazily, and paginates like the discovery feed.
  */
 class MyContentViewModel(
     private val mode: OwnedMode,
-    private val ownerId: UUID = JwtTokenProvider().userId,
+    private val ownerId: UUID = SessionManager.userId,
     private val searchScenes: (owner: List<UUID>, offset: Int?, limit: Int?) -> ApiResponsePageScene =
         { owner, offset, limit ->
             ScenesApi().searchSceneApiV1ScenesGet(owner = owner, offset = offset, limit = limit)

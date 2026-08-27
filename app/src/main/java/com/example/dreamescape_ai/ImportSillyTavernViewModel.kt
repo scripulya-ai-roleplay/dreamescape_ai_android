@@ -13,7 +13,7 @@ import org.openapitools.client.models.ApiResponseImportPreviewDTO
 import org.openapitools.client.models.ApiResponsePageCharacter
 import org.openapitools.client.models.ImportCandidateDTO
 import org.openapitools.client.models.ImportLorebookResultDTO
-import com.example.dreamescape_ai.auth.JwtTokenProvider
+import com.example.dreamescape_ai.auth.SessionManager
 import java.io.File
 import java.util.UUID
 
@@ -78,7 +78,7 @@ class ImportSillyTavernViewModel(
                 ownerIds = ownerIds, offset = offset, limit = limit
             )
         },
-    private val ownerId: UUID = JwtTokenProvider().userId,
+    private val ownerId: UUID = SessionManager.userId,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
 

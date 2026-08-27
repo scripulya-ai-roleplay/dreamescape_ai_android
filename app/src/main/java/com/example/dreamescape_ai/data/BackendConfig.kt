@@ -4,13 +4,13 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.example.dreamescape_ai.auth.JwtConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
+import java.util.UUID
 
-/** Per-process DataStore remembering the user-chosen backend base URL and JWT secret. */
+/** Per-process DataStore remembering the backend base URL and the login account. */
 private val Context.backendDataStore by preferencesDataStore(name = "backend_settings")
 
 /**
@@ -23,8 +23,9 @@ private val Context.backendDataStore by preferencesDataStore(name = "backend_set
  * API class reads the property lazily once (cached), a change still needs a
  * process restart to reach already-loaded clients; see [AdvancedSettingsActivity].
  *
- * The JWT signing secret is persisted the same way and read once at startup to
- * build the token provider; changing it likewise needs a process restart.
+ * The login account (username + password) is persisted the same way and read
+ * once at startup to configure [com.example.dreamescape_ai.auth.SessionManager];
+ * changing it likewise needs a process restart.
  */
 object BackendConfig {
 
@@ -59,32 +60,65 @@ object BackendConfig {
             .getOrDefault(DEFAULT_BACKEND_BASE_URL)
 
     /**
-     * Built-in default signing secret: the backend's `JWT_SECRET_KEY`
-     * (`dev-secret-change-me` in dev). Used when the user has not overridden it.
+     * Built-in default account: the backend's dev seed (`scripts/init.sql`),
+     * matching the identity the old self-signed-token flow hardcoded.
      */
-    const val DEFAULT_JWT_SECRET: String = JwtConfig.JWT_SECRET_KEY
+    const val DEFAULT_USERNAME: String = "mobile"
+    const val DEFAULT_PASSWORD: String = "password"
 
-    private val jwtSecretKey = stringPreferencesKey("jwt_secret_key")
+    private val usernameKey = stringPreferencesKey("login_username")
+    private val passwordKey = stringPreferencesKey("login_password")
+    private val userIdKey = stringPreferencesKey("last_known_user_id")
 
-    /** Emits the persisted JWT signing secret, or [DEFAULT_JWT_SECRET] when unset. */
-    fun jwtSecretFlow(context: Context): Flow<String> =
+    /**
+     * Login account (username + password). The password is stored in plain
+     * DataStore — the same trust level the app already gives the base URL and
+     * the old JWT secret; the backend's tokens are short-lived and revocable by
+     * rotating credentials.
+     */
+    data class Account(val username: String, val password: String)
+
+    /** Emits the persisted account, or the dev seed when unset. */
+    fun accountFlow(context: Context): Flow<Account> =
         context.backendDataStore.data.map { prefs ->
-            prefs[jwtSecretKey]?.takeIf { it.isNotBlank() } ?: DEFAULT_JWT_SECRET
+            Account(
+                username = prefs[usernameKey]?.takeIf { it.isNotBlank() } ?: DEFAULT_USERNAME,
+                password = prefs[passwordKey]?.takeIf { it.isNotBlank() } ?: DEFAULT_PASSWORD
+            )
         }
 
-    /** Persists [secret] as the JWT signing key (blank clears the override). */
-    suspend fun setJwtSecret(context: Context, secret: String) {
-        context.backendDataStore.edit { it[jwtSecretKey] = secret.trim() }
+    /** Persists the login account (blank fields fall back to the defaults). */
+    suspend fun setAccount(context: Context, username: String, password: String) {
+        context.backendDataStore.edit {
+            it[usernameKey] = username.trim()
+            it[passwordKey] = password
+        }
     }
 
     /**
-     * Reads the persisted JWT secret **synchronously**, for the single bootstrap
-     * read in [DreamescapeApplication.onCreate] so the token provider is built
-     * with the right key before any API call can run.
+     * Reads the persisted account **synchronously**, for the single bootstrap
+     * read in [DreamescapeApplication.onCreate] so [SessionManager] is
+     * configured before any API call can run.
      */
-    fun readJwtSecretBlocking(context: Context): String =
-        runCatching { runBlocking { jwtSecretFlow(context).first() } }
-            .getOrDefault(DEFAULT_JWT_SECRET)
+    fun readAccountBlocking(context: Context): Account =
+        runCatching { runBlocking { accountFlow(context).first() } }.getOrDefault(
+            Account(DEFAULT_USERNAME, DEFAULT_PASSWORD)
+        )
+
+    /**
+     * Emits the user id observed in the last successful login, or `null` when
+     * no login has revealed one yet (first run: [SessionManager] falls back to
+     * its dev-seed default).
+     */
+    fun lastKnownUserIdFlow(context: Context): Flow<UUID?> =
+        context.backendDataStore.data.map { prefs ->
+            prefs[userIdKey]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+        }
+
+    /** Persists the id observed at login, for correct pre-login identity. */
+    suspend fun setLastKnownUserId(context: Context, userId: UUID) {
+        context.backendDataStore.edit { it[userIdKey] = userId.toString() }
+    }
 
     /**
      * Built-in default for the MinIO/image-storage override: blank, meaning

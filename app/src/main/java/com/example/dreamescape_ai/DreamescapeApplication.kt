@@ -3,10 +3,18 @@ package com.example.dreamescape_ai
 import android.app.Application
 import coil.Coil
 import coil.ImageLoader
-import com.example.dreamescape_ai.auth.JwtAuthInterceptor
-import com.example.dreamescape_ai.auth.JwtTokenProvider
+import com.example.dreamescape_ai.auth.AuthInterceptor
+import com.example.dreamescape_ai.auth.LoginClient
+import com.example.dreamescape_ai.auth.SessionManager
+import com.example.dreamescape_ai.auth.TokenAuthenticator
 import com.example.dreamescape_ai.data.BackendConfig
 import com.example.dreamescape_ai.data.MinioHostInterceptor
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
 import okhttp3.OkHttpClient
 import org.openapitools.client.infrastructure.ApiClient
 
@@ -18,11 +26,12 @@ import org.openapitools.client.infrastructure.ApiClient
  *    settings, defaulting to the host backend 0.0.0.0:8000 reachable from the
  *    Android emulator through the alias 10.0.2.2) and pushed into the
  *    `org.openapitools.client.baseUrl` system property the generated clients read;
- *  * a [JwtAuthInterceptor] is installed so every request carries a JWT Bearer
- *    token (signed with the secret configured in Advanced settings), satisfying
- *    the backend's HTTP Bearer security scheme.
+ *  * [SessionManager] is configured with the persisted login account, and an
+ *    [AuthInterceptor] + [TokenAuthenticator] pair is installed so every
+ *    request carries a server-issued Bearer token (obtained via
+ *    `POST /api/v1/auth/login`, proactively refreshed before expiry).
  *
- * Coil's shared [ImageLoader] uses a *plain* OkHttp client (no JWT interceptor):
+ * Coil's shared [ImageLoader] uses a *plain* OkHttp client (no auth interceptor):
  * media URLs are MinIO presigned/public URLs, and adding an Authorization header
  * to a presigned URL makes MinIO reject it (S3 forbids mixing query-string and
  * header auth).
@@ -36,27 +45,65 @@ class DreamescapeApplication : Application() {
         // it must be correct from the very first call.
         applyBaseUrl(BackendConfig.readBaseUrlBlocking(this))
         applyMinioBaseUrl(BackendConfig.readMinioBaseUrlBlocking(this))
-        registerJwtAuthentication()
+        configureSession()
+        registerAuthentication()
         configureImageLoader()
     }
 
     /**
-     * Installs a single [JwtAuthInterceptor] on the shared OkHttp builder used
-     * by the generated API client, so every request is authorized with a JWT.
+     * Configures [SessionManager] with the persisted account before any API
+     * call can run. The login transport posts to the *live* base URL (the
+     * system property was just set), so a mid-session base-URL change without
+     * restart still logs in against the new backend on next token need.
      *
-     * It must be added before [ApiClient.defaultClient] is first built, which
+     * The last-known user id observed at login is persisted asynchronously;
+     * [SessionManager.userId] is read synchronously by ViewModels, so this
+     * never blocks the first frame on DataStore.
+     */
+    private fun configureSession() {
+        val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val account = BackendConfig.readAccountBlocking(this)
+        val lastKnownUserId = runCatching {
+            runBlocking { BackendConfig.lastKnownUserIdFlow(this@DreamescapeApplication).first() }
+        }.getOrNull()
+
+        SessionManager.configure(
+            username = account.username,
+            password = account.password,
+            login = { user, pass ->
+                LoginClient.login(BACKEND_BASE_URL, user, pass, loginClient)
+            },
+            initialUserId = lastKnownUserId
+        ) { resolved ->
+            appScope.launch {
+                BackendConfig.setLastKnownUserId(this@DreamescapeApplication, resolved)
+            }
+        }
+    }
+
+    /**
+     * Standalone OkHttp client used only for the login POST: it must NOT carry
+     * [AuthInterceptor]/[TokenAuthenticator], which would recurse (login needs
+     * a token, the token needs login). Built from the shared builder with the
+     * auth pieces skipped, so proxy/timeouts stay consistent.
+     */
+    private val loginClient: OkHttpClient by lazy { OkHttpClient() }
+
+    /**
+     * Installs the auth pair on the shared OkHttp builder used by the generated
+     * API client: the interceptor stamps the token on every request, the
+     * authenticator retries once with a fresh one after an unexpected 401.
+     *
+     * Both must be added before [ApiClient.defaultClient] is first built, which
      * happens on the first API call and therefore always after [onCreate]. The
      * registration is idempotent to stay safe if the process is reused.
-     *
-     * The token provider is built with the JWT secret persisted in Advanced
-     * settings ([BackendConfig.readJwtSecretBlocking]), defaulting to the dev
-     * secret when unset; changing it needs a process restart.
      */
-    private fun registerJwtAuthentication() {
-        val alreadyRegistered = ApiClient.builder.interceptors().any { it is JwtAuthInterceptor }
+    private fun registerAuthentication() {
+        val alreadyRegistered = ApiClient.builder.interceptors().any { it is AuthInterceptor }
         if (!alreadyRegistered) {
-            val secret = BackendConfig.readJwtSecretBlocking(this)
-            ApiClient.builder.addInterceptor(JwtAuthInterceptor(JwtTokenProvider(secretKey = secret)))
+            ApiClient.builder
+                .addInterceptor(AuthInterceptor())
+                .authenticator(TokenAuthenticator())
         }
     }
 

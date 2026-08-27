@@ -2,7 +2,7 @@ package com.example.dreamescape_ai
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.dreamescape_ai.auth.JwtTokenProvider
+import com.example.dreamescape_ai.auth.SessionManager
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,7 +27,7 @@ class CreateChatViewModel(
         ChatsApi().createChatApiV1ChatsPost(request)
     },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val userId: UUID = JwtTokenProvider().userId
+    private val userId: UUID = SessionManager.userId
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CreateChatUiState())

@@ -1,6 +1,6 @@
 package com.example.dreamescape_ai
 
-import com.example.dreamescape_ai.auth.JwtConfig
+import com.example.dreamescape_ai.auth.SessionManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -290,7 +290,7 @@ class CreateSceneViewModelTest {
         viewModel.createScene()
         advanceUntilIdle()
 
-        assertEquals(UUID.fromString(JwtConfig.TOKEN_SUBJECT), capturedScene?.ownerId)
+        assertEquals(SessionManager.DEFAULT_USER_ID, capturedScene?.ownerId)
     }
 
     @Test

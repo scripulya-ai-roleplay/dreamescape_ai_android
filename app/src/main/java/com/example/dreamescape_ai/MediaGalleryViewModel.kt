@@ -2,7 +2,7 @@ package com.example.dreamescape_ai
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.dreamescape_ai.auth.JwtTokenProvider
+import com.example.dreamescape_ai.auth.SessionManager
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,7 +42,7 @@ class MediaGalleryViewModel(
     private val uploadMediaCall: (File, String, MediaEntityType, UUID, Boolean?) -> ApiResponseMediaAssetDTO = { file, mime, type, id, isPublic ->
         MediaUploader.upload(file, mime, type, id, isPublic)
     },
-    private val defaultUserId: UUID = JwtTokenProvider().userId,
+    private val defaultUserId: UUID = SessionManager.userId,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
 
