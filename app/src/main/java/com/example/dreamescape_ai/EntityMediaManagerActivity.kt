@@ -68,6 +68,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.example.dreamescape_ai.auth.SessionManager
 import com.example.dreamescape_ai.ui.theme.Dreamescape_aiTheme
 import org.openapitools.client.models.MediaAssetDTO
 import org.openapitools.client.models.MediaEntityType
@@ -242,7 +243,29 @@ fun EntityMediaManagerScreen(
             }
             uiState.media.isEmpty() -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No images yet", style = MaterialTheme.typography.bodyLarge)
+                    // A failed login makes every request anonymous, which on this
+                    // endpoint looks like an empty gallery (private media is
+                    // filtered out). Say so instead of "No images yet".
+                    val loginError = SessionManager.lastLoginError
+                    if (loginError != null) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                "Not signed in — private images are hidden",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            Text(
+                                loginError,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        Text("No images yet", style = MaterialTheme.typography.bodyLarge)
+                    }
                 }
             }
             else -> {

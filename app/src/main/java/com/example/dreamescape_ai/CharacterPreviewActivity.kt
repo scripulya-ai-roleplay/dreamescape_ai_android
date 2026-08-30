@@ -48,6 +48,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.example.dreamescape_ai.auth.SessionManager
 import com.example.dreamescape_ai.ui.components.BookmarkButton
 import com.example.dreamescape_ai.ui.components.EngagementBottomBar
 import com.example.dreamescape_ai.ui.components.LikeButton
@@ -235,12 +236,26 @@ private fun CharacterHero(
                 if (isLoading) {
                     CircularProgressIndicator()
                 } else {
-                    Icon(
-                        imageVector = Icons.Filled.Image,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(48.dp)
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Image,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        // Same silent-auth trap as the media manager: anonymous
+                        // requests hide private images, which reads as "no cover".
+                        if (SessionManager.lastLoginError != null) {
+                            Text(
+                                "Not signed in — private images are hidden",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
         }

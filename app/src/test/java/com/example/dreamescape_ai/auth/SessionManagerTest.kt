@@ -1,6 +1,7 @@
 package com.example.dreamescape_ai.auth
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
@@ -239,6 +240,78 @@ class SessionManagerTest {
         assertThrows(LoginClient.LoginFailedException::class.java) {
             SessionManager.currentToken()
         }
+    }
+
+    @Test
+    fun `failed login is recorded as lastLoginError`() {
+        SessionManager.configure(
+            username = "mobile",
+            password = "wrong",
+            login = { _, _ -> throw LoginClient.LoginFailedException("Login failed: HTTP 401", 401) },
+            clock = { fixedNow }
+        )
+
+        assertThrows(LoginClient.LoginFailedException::class.java) {
+            SessionManager.currentToken()
+        }
+
+        assertEquals("Login failed: HTTP 401", SessionManager.lastLoginError)
+    }
+
+    @Test
+    fun `successful login clears lastLoginError`() {
+        SessionManager.configure(
+            username = "mobile",
+            password = "wrong",
+            login = { _, _ -> throw LoginClient.LoginFailedException("Login failed: HTTP 401", 401) },
+            clock = { fixedNow }
+        )
+        assertThrows(LoginClient.LoginFailedException::class.java) { SessionManager.currentToken() }
+
+        SessionManager.configure(
+            username = "mobile",
+            password = "password",
+            login = { _, _ -> token(fixedNow.plusSeconds(600).epochSecond) },
+            clock = { fixedNow }
+        )
+
+        SessionManager.currentToken()
+
+        assertNull(SessionManager.lastLoginError)
+    }
+
+    @Test
+    fun `network failure message falls back to a generic string`() {
+        SessionManager.configure(
+            username = "mobile",
+            password = "password",
+            login = { _, _ -> throw RuntimeException() }, // no message
+            clock = { fixedNow }
+        )
+
+        assertThrows(RuntimeException::class.java) { SessionManager.currentToken() }
+
+        assertEquals("Login failed", SessionManager.lastLoginError)
+    }
+
+    @Test
+    fun `configure resets lastLoginError`() {
+        SessionManager.configure(
+            username = "mobile",
+            password = "wrong",
+            login = { _, _ -> throw LoginClient.LoginFailedException("Login failed: HTTP 401", 401) },
+            clock = { fixedNow }
+        )
+        assertThrows(LoginClient.LoginFailedException::class.java) { SessionManager.currentToken() }
+
+        SessionManager.configure(
+            username = "mobile",
+            password = "password",
+            login = { _, _ -> token(fixedNow.plusSeconds(600).epochSecond) },
+            clock = { fixedNow }
+        )
+
+        assertNull(SessionManager.lastLoginError)
     }
 }
 

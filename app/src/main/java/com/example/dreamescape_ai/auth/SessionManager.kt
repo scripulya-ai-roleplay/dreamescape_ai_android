@@ -64,6 +64,20 @@ object SessionManager {
     @Volatile
     private var onUserIdResolved: ((UUID) -> Unit)? = null
 
+    /**
+     * Human-readable reason the last login attempt failed, or null when the
+     * session is healthy (never logged in yet, or last login succeeded).
+     *
+     * [AuthInterceptor] deliberately sends requests unauthenticated when the
+     * login fails, and optional-auth endpoints then answer 200 with public
+     * data only — so a broken login looks like "no images yet" rather than an
+     * error. Screens that can show private data surface this so the real
+     * cause is visible.
+     */
+    @Volatile
+    var lastLoginError: String? = null
+        private set
+
     private val lock = Any()
 
     /**
@@ -95,6 +109,7 @@ object SessionManager {
             this.accessToken = null
             this.tokenExpiresAt = null
             this.userId = initialUserId ?: DEFAULT_USER_ID
+            this.lastLoginError = null
         }
     }
 
@@ -162,7 +177,13 @@ object SessionManager {
     private fun performLoginLocked(): String {
         val login = this.login
             ?: throw IllegalStateException("SessionManager is not configured")
-        val token = login(username, password)
+        val token = try {
+            login(username, password)
+        } catch (e: Exception) {
+            lastLoginError = e.message ?: "Login failed"
+            throw e
+        }
+        lastLoginError = null
 
         val claims = TokenClaims.parse(token)
         accessToken = token
