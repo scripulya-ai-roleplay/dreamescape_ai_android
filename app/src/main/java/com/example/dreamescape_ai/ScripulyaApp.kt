@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -21,6 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.dreamescape_ai.model.HistoryItem
 import com.example.dreamescape_ai.model.StoryItem
@@ -50,7 +53,6 @@ import org.openapitools.client.models.Chat
 fun ScripulyaApp(
     profile: UserProfile,
     history: List<HistoryItem>,
-    onChangeCharacter: () -> Unit,
     onChatClick: (Chat) -> Unit,
     onStoryClick: (StoryItem) -> Unit = {},
     onPlay: (HistoryItem) -> Unit = {},
@@ -59,7 +61,10 @@ fun ScripulyaApp(
     onMyCharacters: () -> Unit = {},
     onMyScenes: () -> Unit = {},
     onImportSillyTavern: () -> Unit = {},
-    discoveryViewModel: DiscoveryViewModel = viewModel()
+    discoveryViewModel: DiscoveryViewModel = viewModel(),
+    profileViewModel: ProfileViewModel = viewModel(
+        factory = profileViewModelFactory(LocalContext.current.applicationContext)
+    )
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(ScripulyaTab.HOME) }
     var showHistory by rememberSaveable { mutableStateOf(false) }
@@ -67,6 +72,7 @@ fun ScripulyaApp(
     val context = LocalContext.current
 
     val discoveryState by discoveryViewModel.uiState.collectAsState()
+    val profileState by profileViewModel.uiState.collectAsState()
 
     // Returning to the Home tab reuses the cached feed if fresh (< CACHE_TTL_MS)
     // or silently refetches; pull-to-refresh forces a refresh regardless. Tracked
@@ -82,6 +88,9 @@ fun ScripulyaApp(
         previousTab.value = selectedTab
     }
 
+    CompositionLocalProvider(
+        LocalPersonaName provides profileState.selectedPersona.characterName
+    ) {
     Box(modifier = Modifier.fillMaxSize().nightSkyGradient()) {
         Scaffold(
             containerColor = Color.Transparent,
@@ -135,7 +144,14 @@ fun ScripulyaApp(
 
                     ScripulyaTab.PROFILE -> ProfileScreen(
                         profile = profile,
-                        onChangeCharacter = onChangeCharacter,
+                        uiState = profileState,
+                        onOpenPersonaPicker = {
+                            profileViewModel.loadCharacters()
+                        },
+                        onSelectPersona = profileViewModel::selectPersona,
+                        onDismissPersonaPicker = {
+                            profileViewModel.consumePickerError()
+                        },
                         onOpenHistory = openHistory,
                         onSettings = {
                             // Profile's settings gear → Advanced settings (backend address, etc.).
@@ -169,4 +185,13 @@ fun ScripulyaApp(
             )
         }
     }
+    }
 }
+
+private fun profileViewModelFactory(appContext: android.content.Context): ViewModelProvider.Factory =
+    object : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            return ProfileViewModel(appContext = appContext) as T
+        }
+    }

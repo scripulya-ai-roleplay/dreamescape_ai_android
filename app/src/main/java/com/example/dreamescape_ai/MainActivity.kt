@@ -17,9 +17,6 @@ class MainActivity : ComponentActivity() {
                 ScripulyaApp(
                     profile = SampleData.profile,
                     history = SampleData.history,
-                    onChangeCharacter = {
-                        startActivity(Intent(this, CreateCharacterActivity::class.java))
-                    },
                     onChatClick = { chat ->
                         // Tapping a conversation opens it in the chat activity.
                         chat.id?.let { chatId ->

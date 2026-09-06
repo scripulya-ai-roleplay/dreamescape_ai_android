@@ -17,11 +17,13 @@ import org.junit.Before
 import org.junit.Test
 import org.json.JSONObject
 import com.example.dreamescape_ai.ChatViewModel.StreamAction
+import org.openapitools.client.models.ApiResponseCharacter
 import org.openapitools.client.models.ApiResponseChat
 import org.openapitools.client.models.ApiResponseListInitialMessage
 import org.openapitools.client.models.ApiResponseMessage
 import org.openapitools.client.models.ApiResponsePageMessage
 import org.openapitools.client.models.Chat
+import org.openapitools.client.models.Character
 import org.openapitools.client.models.ChatRoles
 import org.openapitools.client.models.InitialMessage
 import org.openapitools.client.models.LLMModelType
@@ -384,6 +386,77 @@ class ChatViewModelTest {
         // A scene-less chat cannot offer greetings; the gate must not open.
         assertFalse(viewModel.uiState.value.needsInitialMessage)
         assertEquals(0, sceneLookups) // no scene-dependent lookups were made
+    }
+
+    @Test
+    fun `loadChat resolves the persona name from the chat's user character`() = runTest {
+        val personaId = UUID.fromString("00000000-0000-0000-0000-0000000000ee")
+        var lookedUpId: UUID? = null
+        val viewModel = ChatViewModel(
+            chatId = testChatId,
+            loadMessagesCall = { createPage(emptyList()) },
+            sendMessageCall = { messageResponse(it.message) },
+            getChatCall = {
+                ApiResponseChat(
+                    result = Chat(
+                        title = "Chat",
+                        userId = UUID.fromString("00000000-0000-0000-0000-0000000000cc"),
+                        sceneId = UUID.fromString("00000000-0000-0000-0000-0000000000dd"),
+                        id = testChatId,
+                        initialMessageId = null,
+                        userCharacterId = personaId
+                    )
+                )
+            },
+            getCharacterCall = { id ->
+                lookedUpId = id
+                ApiResponseCharacter(
+                    result = Character(name = "Kael", systemPrompt = "A bard.")
+                )
+            },
+            sceneImageCall = { throw RuntimeException("no network in tests") },
+            getSceneInitialMessagesCall = { throw RuntimeException("no network in tests") },
+            ioDispatcher = testDispatcher,
+            modelFlow = flowOf(LLMModelType.testing_mock),
+            waitForReply = { _, _ -> }
+        )
+
+        viewModel.loadChat()
+        advanceUntilIdle()
+
+        assertEquals(personaId, lookedUpId)
+        assertEquals("Kael", viewModel.uiState.value.personaName)
+    }
+
+    @Test
+    fun `loadChat without persona leaves the name null`() = runTest {
+        val viewModel = ChatViewModel(
+            chatId = testChatId,
+            loadMessagesCall = { createPage(emptyList()) },
+            sendMessageCall = { messageResponse(it.message) },
+            getChatCall = {
+                ApiResponseChat(
+                    result = Chat(
+                        title = "Chat",
+                        userId = UUID.fromString("00000000-0000-0000-0000-0000000000cc"),
+                        sceneId = null,
+                        id = testChatId,
+                        initialMessageId = null
+                    )
+                )
+            },
+            getCharacterCall = { throw RuntimeException("must not be called without a persona") },
+            sceneImageCall = { throw RuntimeException("no network in tests") },
+            getSceneInitialMessagesCall = { throw RuntimeException("no network in tests") },
+            ioDispatcher = testDispatcher,
+            modelFlow = flowOf(LLMModelType.testing_mock),
+            waitForReply = { _, _ -> }
+        )
+
+        viewModel.loadChat()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.personaName)
     }
 
     // ---- per-token streaming (word-by-word reveal of token / generation_* / message frames) ----

@@ -1,13 +1,16 @@
 package com.example.dreamescape_ai
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.dreamescape_ai.auth.SessionManager
+import com.example.dreamescape_ai.data.PersonaStore
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import org.openapitools.client.apis.CharactersApi
 import org.openapitools.client.apis.ChatsApi
@@ -284,8 +287,10 @@ class ScenePreviewViewModel(
      * Characters the user may play as in this scene: those they bookmarked plus
      * those they created, deduped by id (bookmarks first). Loaded lazily when
      * the picker opens; portraits resolve via the shared [updateCharacterImage].
+     * The Profile tab's default persona (PersonaStore) pre-selects the matching
+     * card so "Start Chat" uses it without re-picking.
      */
-    fun loadEligibleCharacters() {
+    fun loadEligibleCharacters(appContext: Context? = null) {
         if (_uiState.value.areEligibleLoaded) return
         viewModelScope.launch(ioDispatcher) {
             val bookmarked = try {
@@ -301,6 +306,14 @@ class ScenePreviewViewModel(
             val merged = (bookmarked + owned).distinctBy { it.id ?: it.name }
             val cards = merged.map { CharacterCardState(character = it) }
             _uiState.value = _uiState.value.copy(eligibleCharacters = cards, areEligibleLoaded = true)
+            // Pre-select the persisted default persona when the picker is the
+            // first thing the user opens (not after an explicit re-pick).
+            if (appContext != null && _uiState.value.selectedCharacterId == null) {
+                val stored = PersonaStore.personaFlow(appContext).firstOrNull()
+                if (stored?.characterId != null) {
+                    _uiState.value = _uiState.value.copy(selectedCharacterId = stored.characterId)
+                }
+            }
             resolveCharacterImages(cards)
         }
     }
