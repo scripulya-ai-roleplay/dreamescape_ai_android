@@ -17,11 +17,13 @@ import kotlinx.coroutines.launch
 import okhttp3.Call
 import okhttp3.Request
 import org.json.JSONObject
+import org.openapitools.client.apis.CharactersApi
 import org.openapitools.client.apis.ChatsApi
 import org.openapitools.client.apis.MediaApi
 import org.openapitools.client.apis.MessagesApi
 import org.openapitools.client.apis.ScenesApi
 import org.openapitools.client.infrastructure.ApiClient
+import org.openapitools.client.models.ApiResponseCharacter
 import org.openapitools.client.models.ApiResponseChat
 import org.openapitools.client.models.ApiResponseListInitialMessage
 import org.openapitools.client.models.ApiResponseMessage
@@ -52,6 +54,9 @@ data class ChatUiState(
     val errorMessage: String? = null,
     val sceneImageUrl: String? = null,
     val sceneImageResolved: Boolean = false,
+    // The chat persona's name, resolved from its user_character_id; null when
+    // the chat has no persona. Drives {{user}} rendering in messages.
+    val personaName: String? = null,
     // The chat's chosen opening greeting, if any. null until the user picks one.
     val initialMessageId: UUID? = null,
     // True while the chat has no greeting — the scene's greetings are shown as a
@@ -80,6 +85,11 @@ class ChatViewModel(
     // preview image for the chat background.
     private val getChatCall: (chatId: UUID) -> ApiResponseChat = { id ->
         ChatsApi().getChatDetailsApiV1ChatsChatIdGet(chatId = id)
+    },
+    // Resolves the chat persona's name (its user_character_id) for {{user}}
+    // rendering; failures leave the placeholder at its "You" fallback.
+    private val getCharacterCall: (characterId: UUID) -> ApiResponseCharacter = { id ->
+        CharactersApi().getCharacterDetailsApiV1CharactersCharacterIdGet(characterId = id)
     },
     // Resolves the newest media asset attached to a scene (its preview image).
     private val sceneImageCall: (sceneId: UUID) -> ApiResponseListMediaAssetDTO = { sceneId ->
@@ -205,13 +215,21 @@ class ChatViewModel(
             } else {
                 emptyList()
             }
+            val personaName = chat.userCharacterId?.let { id ->
+                try {
+                    getCharacterCall(id).result.name
+                } catch (_: Exception) {
+                    null
+                }
+            }
             _uiState.value = _uiState.value.copy(
                 sceneImageUrl = imageUrl,
                 sceneImageResolved = true,
                 initialMessageId = chat.initialMessageId,
                 needsInitialMessage = needsGreeting,
                 sceneInitialMessages = greetings,
-                currentInitialMessageIndex = 0
+                currentInitialMessageIndex = 0,
+                personaName = personaName
             )
         }
     }

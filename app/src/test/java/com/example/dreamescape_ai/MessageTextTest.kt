@@ -68,4 +68,47 @@ class MessageTextTest {
         val persisted = "```json\n{\n  \"text\": \"Final reply\"\n}\n```"
         assertEquals("Final reply", extractModelMessageText(persisted))
     }
+
+    @Test
+    fun `substitutePlaceholders replaces user with persona name`() {
+        assertEquals("Hello, Kael!", substitutePlaceholders("Hello, {{user}}!", "Kael"))
+    }
+
+    @Test
+    fun `substitutePlaceholders defaults to You without a persona`() {
+        assertEquals("Hello, You!", substitutePlaceholders("Hello, {{user}}!", null))
+    }
+
+    @Test
+    fun `substitutePlaceholders blank persona falls back to You`() {
+        assertEquals("You", substitutePlaceholders("{{user}}", "   "))
+    }
+
+    @Test
+    fun `substitutePlaceholders replaces char with char name`() {
+        assertEquals(
+            "Aria greets Kael.",
+            substitutePlaceholders("{{char}} greets {{user}}.", "Kael", "Aria")
+        )
+    }
+
+    @Test
+    fun `substitutePlaceholders char falls back to user`() {
+        assertEquals("Kael nods.", substitutePlaceholders("{{char}} nods.", "Kael"))
+    }
+
+    @Test
+    fun `substitutePlaceholders is case-insensitive and whitespace-tolerant`() {
+        assertEquals("Kael and Aria", substitutePlaceholders("{{User}} and {{ char }}", "Kael", "Aria"))
+    }
+
+    @Test
+    fun `substitutePlaceholders leaves plain text unchanged`() {
+        assertEquals("Just prose.", substitutePlaceholders("Just prose.", "Kael"))
+    }
+
+    @Test
+    fun `substitutePlaceholders replaces repeated occurrences`() {
+        assertEquals("Kael said Kael would go.", substitutePlaceholders("{{user}} said {{user}} would go.", "Kael"))
+    }
 }

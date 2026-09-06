@@ -251,6 +251,7 @@ fun ChatScreen(
                                 if (greeting != null) {
                                     InitialMessageCarouselItem(
                                         text = greeting.text,
+                                        personaName = uiState.personaName,
                                         index = uiState.currentInitialMessageIndex,
                                         total = uiState.sceneInitialMessages.size,
                                         enabled = !uiState.isSending,
@@ -302,7 +303,8 @@ fun ChatScreen(
                                         ),
                                         // Live chain-of-thought accumulated from `thinking`
                                         // SSE frames; shown behind the collapsible disclosure.
-                                        thoughts = uiState.streamingThinking
+                                        thoughts = uiState.streamingThinking,
+                                        personaName = uiState.personaName
                                     )
                                 }
                             }
@@ -310,7 +312,8 @@ fun ChatScreen(
                                 MessageItem(
                                     message = message,
                                     onEdit = { m -> editingMessage = m },
-                                    onDelete = { m -> pendingDelete = m }
+                                    onDelete = { m -> pendingDelete = m },
+                                    personaName = uiState.personaName
                                 )
                                 if (index < uiState.messages.lastIndex) {
                                     HorizontalDivider(
@@ -468,13 +471,14 @@ fun ChatScreen(
 @Composable
 fun InitialMessageCarouselItem(
     text: String,
+    personaName: String?,
     index: Int,
     total: Int,
     enabled: Boolean,
     onPrevious: () -> Unit,
     onNext: () -> Unit
 ) {
-    val displayText = extractModelMessageText(text)
+    val displayText = substitutePlaceholders(extractModelMessageText(text), personaName)
     Column(modifier = Modifier.fillMaxWidth()) {
         // The greeting, rendered exactly like a normal model message: "Model"
         // label, darkened background, markdown + roleplay styling — no controls.
@@ -542,6 +546,7 @@ fun InitialMessageCarouselItem(
 fun MessageItem(
     message: Message,
     thoughts: String? = null,
+    personaName: String? = null,
     onEdit: ((Message) -> Unit)? = null,
     onDelete: ((Message) -> Unit)? = null
 ) {
@@ -549,7 +554,9 @@ fun MessageItem(
     // Model replies arrive as a fenced {"text": ...} envelope; unwrap it to plain
     // prose. User messages render verbatim. Both go through the Markdown renderer,
     // whose custom components then highlight "dialogue" / (asides) and grey *narration*.
-    val displayText = if (isUser) message.message else extractModelMessageText(message.message)
+    // {{user}} in model text renders as the chat's persona name (or "You").
+    val displayText = if (isUser) message.message
+        else substitutePlaceholders(extractModelMessageText(message.message), personaName)
     // Live chain-of-thought is passed in for the in-flight streaming bubble; persisted
     // messages carry it as `reasoning`. A non-blank value from either source surfaces the
     // collapsible disclosure at the top of the bubble (collapsed by default).
@@ -572,7 +579,11 @@ fun MessageItem(
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Text(
-            text = if (isUser) "You" else "Model",
+            text = if (isUser) {
+                personaName?.trim()?.takeIf { it.isNotEmpty() } ?: "You"
+            } else {
+                "Model"
+            },
             color = Color.White,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold

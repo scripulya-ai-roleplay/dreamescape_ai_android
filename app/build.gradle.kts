@@ -61,6 +61,10 @@ dependencies {
     // to throw "not mocked". This provides a working implementation on the test
     // classpath so JSON-parsing paths (e.g. SSE token/message frames) are testable.
     testImplementation("org.json:json:20240303")
+    // Robolectric for ViewModels that touch Android framework types (DataStore's
+    // Context): provides a working Context on the host JVM.
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("androidx.test:core-ktx:1.6.1")
     testImplementation(libs.mockwebserver)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

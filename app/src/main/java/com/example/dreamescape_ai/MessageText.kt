@@ -89,6 +89,30 @@ private fun unescapeChar(c: Char): Char = when (c) {
 fun truncateForPreview(text: String, max: Int = 100): String =
     if (text.length <= max) text else text.take(max) + "..."
 
+/** Rendered when no persona is set — the placeholder must never leak to the UI. */
+const val DEFAULT_USER_PLACEHOLDER = "You"
+
+private val placeholderRegex = Regex("""\{\{\s*(user|char)\s*\}\}""", RegexOption.IGNORE_CASE)
+
+/**
+ * Replaces `{{user}}` / `{{char}}` macros in author-facing text (descriptions,
+ * greetings, prompts). `{{user}}` becomes the persona name, falling back to
+ * "You" when [userName] is null/blank — mirroring the backend's
+ * `substitute_placeholders` so both sides render identically. `{{char}}`
+ * becomes [charName], falling back to the user name.
+ */
+fun substitutePlaceholders(
+    text: String,
+    userName: String?,
+    charName: String? = null
+): String {
+    val user = userName?.trim()?.takeIf { it.isNotEmpty() } ?: DEFAULT_USER_PLACEHOLDER
+    val char = charName?.trim()?.takeIf { it.isNotEmpty() } ?: user
+    return placeholderRegex.replace(text) { match ->
+        if (match.groupValues[1].equals("user", ignoreCase = true)) user else char
+    }
+}
+
 /**
  * If [text] is wrapped in a ``` (optionally ```json) code fence, returns the
  * content between the fences; otherwise returns [text] unchanged.

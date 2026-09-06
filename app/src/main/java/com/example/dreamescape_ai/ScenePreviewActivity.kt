@@ -246,7 +246,7 @@ fun ScenePreviewScreen(
             onStartChat = {
                 // Load the user's playable characters, then let them pick a persona
                 // (or start without one) before the chat is created.
-                viewModel.loadEligibleCharacters()
+                viewModel.loadEligibleCharacters(context.applicationContext)
                 showPersonaPicker = true
             },
             modifier = Modifier.align(Alignment.BottomCenter)
@@ -257,6 +257,7 @@ fun ScenePreviewScreen(
                 characters = uiState.eligibleCharacters,
                 areLoaded = uiState.areEligibleLoaded,
                 isCreatingChat = uiState.isCreatingChat,
+                preselectedCharacterId = uiState.selectedCharacterId,
                 onPick = { characterId ->
                     viewModel.selectCharacter(characterId)
                     viewModel.startChat()
@@ -498,9 +499,12 @@ private fun CharacterCard(card: CharacterCardState, onClick: () -> Unit = {}) {
 @Composable
 private fun DescriptionSection(uiState: ScenePreviewUiState) {
     val scene = uiState.scene
-    val description = scene?.description?.takeIf { it.isNotBlank() }
+    val rawDescription = scene?.description?.takeIf { it.isNotBlank() }
         ?: scene?.backgroundPrompt?.takeIf { it.isNotBlank() }
         ?: "Description of the story"
+    // {{user}} renders as the reader's persona; a preview isn't tied to a chat,
+    // so it falls back to the Profile-stored default persona, then "You".
+    val description = substitutePlaceholders(rawDescription, LocalPersonaName.current)
 
     Text(
         text = "Description",
@@ -582,10 +586,20 @@ private fun PersonaPickerScreen(
     characters: List<CharacterCardState>,
     areLoaded: Boolean,
     isCreatingChat: Boolean,
+    preselectedCharacterId: UUID?,
     onPick: (UUID?) -> Unit,
     onDismiss: () -> Unit
 ) {
     val listState = rememberLazyListState()
+
+    // Once the list is loaded, center the pre-selected persona (from the
+    // Profile tab's default) instead of the leading "no persona" card.
+    LaunchedEffect(areLoaded, characters.size) {
+        if (areLoaded && preselectedCharacterId != null) {
+            val index = characters.indexOfFirst { it.character.id == preselectedCharacterId }
+            if (index >= 0) listState.scrollToItem(index + 1)
+        }
+    }
 
     // The "no persona" card lives at index 0, so character cards start at index 1.
     // Whichever card is nearest the viewport center is the active selection.

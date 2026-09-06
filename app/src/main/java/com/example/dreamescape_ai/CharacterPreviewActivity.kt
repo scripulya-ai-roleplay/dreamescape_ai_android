@@ -323,8 +323,16 @@ private fun CharacterHero(
 
 @Composable
 private fun CharacterDescriptionSection(uiState: CharacterPreviewUiState) {
-    val description = uiState.character?.systemPrompt?.takeIf { it.isNotBlank() }
+    val rawDescription = uiState.character?.systemPrompt?.takeIf { it.isNotBlank() }
         ?: "No description available."
+    // {{user}} renders as the reader's persona; a preview isn't tied to a chat,
+    // so it falls back to the Profile-stored default persona, then "You". The
+    // character's own {{char}} resolves to its name.
+    val description = substitutePlaceholders(
+        rawDescription,
+        LocalPersonaName.current,
+        charName = uiState.character?.name
+    )
 
     Text(
         text = "Description",
