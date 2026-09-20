@@ -9,13 +9,18 @@ import org.openapitools.client.infrastructure.Serializer
 /**
  * Minimal typed client for `POST /api/v1/auth/login`, hand-built for the same
  * reason [com.example.dreamescape_ai.MediaUploader] builds its multipart by
- * hand: the generated OpenAPI surface does not (yet) cover the auth paths.
+ * hand: the generated [org.openapitools.client.apis.AuthApi] does cover this
+ * route, but the OpenAPI spec declares the login operation itself as
+ * `HTTPBearer`-secured (the backend registers its bearer scheme as a global
+ * dependency), so the generated request config has `requiresAuthentication =
+ * true` and calling it on the shared client would recurse: token → login →
+ * token. Long-term fix: drop that security declaration from the login
+ * operation in the spec and regenerate.
  *
  * Runs on whatever thread [SessionManager.currentToken] was called from (an
  * OkHttp interceptor or authenticator thread) and blocks until the server
  * answers. Only the raw OkHttp client is used — deliberately NOT the shared
- * authed [org.openapitools.client.infrastructure.ApiClient.defaultClient],
- * which would recurse through [AuthInterceptor] → login → authenticator.
+ * authed [org.openapitools.client.infrastructure.ApiClient.defaultClient].
  */
 object LoginClient {
 
