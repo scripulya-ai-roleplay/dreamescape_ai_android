@@ -74,12 +74,18 @@ Wired in `DreamescapeApplication`:
   host loopback, so the backend on your machine is reachable from the emulator.
   To run against a different host (e.g. a physical device), change
   `DreamescapeApplication.BACKEND_BASE_URL`.
-- **Auth** — every backend endpoint requires an HTTP Bearer JWT. The backend uses
-  symmetric **HS256** with a shared secret, so the client self-signs a token
-  (`auth/JwtConfig.kt`, dev secret `dev-secret-change-me`, fixed subject UUID,
-  1-hour TTL). `JwtAuthInterceptor` is installed on the shared OkHttp client and
-  mints a fresh token per request.
-- **Images** — Coil uses a **plain** OkHttp client (no JWT interceptor): media URLs
+- **Auth** — the client logs in through `POST /api/v1/auth/login`
+  (`auth/LoginClient.kt`) and sends the server-issued Bearer JWT on every
+  request; the HS256 signing secret never leaves the backend (GITHUB-80).
+  `auth/SessionManager.kt` caches the token and proactively re-logs in shortly
+  before expiry, and an `AuthInterceptor` + `TokenAuthenticator` pair installed
+  on the shared OkHttp client stamps the header — and, after an unexpected 401,
+  retries exactly once with a fresh token. Public-content routes are
+  optionally authenticated: a missing `Authorization` header returns public
+  data, while an *invalid* token is rejected with 401 — treat 401 as
+  "re-login", not as "this content is public". Dev installs log in as the
+  seeded `mobile`/`password` account (`data/BackendConfig.kt`).
+- **Images** — Coil uses a **plain** OkHttp client (no auth interceptor): media URLs
   are MinIO presigned/public URLs, and adding an `Authorization` header to a
   presigned URL makes MinIO reject it.
 
@@ -116,11 +122,14 @@ reference — stick to 7.7.0 for a faithful minimal diff.
   emits a `String` form part). Use `MediaUploader`, which builds the multipart
   request manually on top of `ApiClient.defaultClient`.
 - **Create endpoints require `owner_id`** matching the JWT subject, even though the
-  OpenAPI spec lists it as optional; every create call sets `owner_id = JwtTokenProvider().userId`.
+  OpenAPI spec lists it as optional; every create call sets `owner_id = SessionManager.userId`.
 - **Chat creation ignores the client-sent `id`** — the backend mints its own and
   returns `{"result":{"id":"<uuid>"}}`. Always navigate using the server-returned id.
 - **A chat's persona** (`user_character_id`, the character the user plays as) can be
   set at creation time by passing it in the `Chat` body; the
   `POST /chats/{id}/persona` endpoint is only for changing an existing chat's persona.
-- The JWT secret and subject are **hardcoded for development only** — replace them
-  before any non-dev distribution.
+- The dev login account (`mobile`/`password`, `data/BackendConfig.kt`) is
+  **hardcoded for development only** and matches the backend's seeded dev
+  credentials — point it at real per-user credentials (Advanced settings can
+  change the account) before any non-dev distribution. No JWT signing secret
+  lives in the client anymore; the backend issues every token.
