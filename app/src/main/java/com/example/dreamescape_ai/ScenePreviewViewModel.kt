@@ -114,12 +114,14 @@ class ScenePreviewViewModel(
         ScenesApi().unbookmarkSceneApiV1ScenesSceneIdBookmarkDelete(sceneId = id)
     },
     // Characters the user may play as: bookmarked by them, or created by them.
-    private val searchBookmarkedCharactersCall: (List<UUID>) -> ApiResponsePageCharacter = { userIds ->
-        CharactersApi().searchCharacterApiV1CharactersGet(bookmarkedBy = userIds, limit = 50)
-    },
-    private val searchOwnedCharactersCall: (List<UUID>) -> ApiResponsePageCharacter = { userIds ->
-        CharactersApi().searchCharacterApiV1CharactersGet(ownerIds = userIds, limit = 50)
-    },
+    private val searchBookmarkedCharactersCall: (userIds: List<UUID>, offset: Int?, limit: Int?) -> ApiResponsePageCharacter =
+        { userIds, offset, limit ->
+            CharactersApi().searchCharacterApiV1CharactersGet(bookmarkedBy = userIds, offset = offset, limit = limit)
+        },
+    private val searchOwnedCharactersCall: (userIds: List<UUID>, offset: Int?, limit: Int?) -> ApiResponsePageCharacter =
+        { userIds, offset, limit ->
+            CharactersApi().searchCharacterApiV1CharactersGet(ownerIds = userIds, offset = offset, limit = limit)
+        },
     // Attaches characters to this scene (POST /scenes/{id}/characters). Owner-only
     // on the backend (403 otherwise); the picker is only surfaced to the owner.
     private val attachCharactersCall: (sceneId: UUID, characterIds: List<UUID>) -> ModelApiResponse = { id, ids ->
@@ -212,13 +214,24 @@ class ScenePreviewViewModel(
         }
     }
 
-    /** How many chats the user already has; failures fall back to 0. */
+    /** How many chats the user already has (the page's total `count`); failures fall back to 0. */
     private suspend fun countExistingChats(): Int =
         try {
-            searchChatsCall(listOf(userId), 0, 100).result.items.size
+            searchChatsCall(listOf(userId), 0, 1).result.count
         } catch (_: Exception) {
             0
         }
+
+    /**
+     * Every character the given search matches, loaded via [fetchAllPages] —
+     * a single page would silently drop personas once they exceed one page.
+     */
+    private fun fetchAllCharacters(
+        search: (userIds: List<UUID>, offset: Int?, limit: Int?) -> ApiResponsePageCharacter
+    ): List<Character> = fetchAllPages { offset, limit ->
+        search(listOf(userId), offset, limit).result
+            .let { ListingPage(it.items, it.count) }
+    }
 
     /**
      * Like / bookmark state for the current user against this scene. Fetched
@@ -294,12 +307,12 @@ class ScenePreviewViewModel(
         if (_uiState.value.areEligibleLoaded) return
         viewModelScope.launch(ioDispatcher) {
             val bookmarked = try {
-                searchBookmarkedCharactersCall(listOf(userId)).result.items
+                fetchAllCharacters(searchBookmarkedCharactersCall)
             } catch (_: Exception) {
                 emptyList()
             }
             val owned = try {
-                searchOwnedCharactersCall(listOf(userId)).result.items
+                fetchAllCharacters(searchOwnedCharactersCall)
             } catch (_: Exception) {
                 emptyList()
             }
@@ -332,7 +345,7 @@ class ScenePreviewViewModel(
         if (_uiState.value.areAttachCandidatesLoaded) return
         viewModelScope.launch(ioDispatcher) {
             val owned = try {
-                searchOwnedCharactersCall(listOf(userId)).result.items
+                fetchAllCharacters(searchOwnedCharactersCall)
             } catch (_: Exception) {
                 emptyList()
             }

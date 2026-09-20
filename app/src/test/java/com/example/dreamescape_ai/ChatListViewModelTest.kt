@@ -75,7 +75,7 @@ class ChatListViewModelTest {
             // stubbed out here so these tests stay hermetic and offline.
             getSceneCall = { throw IllegalStateException("not used in tests") },
             sceneImageCall = { throw IllegalStateException("not used in tests") },
-            latestMessageCall = { throw IllegalStateException("not used in tests") },
+            latestMessageCall = { _, _, _ -> throw IllegalStateException("not used in tests") },
             ioDispatcher = testDispatcher
         )
     }
@@ -165,6 +165,55 @@ class ChatListViewModelTest {
 
         assertTrue(viewModel.uiState.value.chats.isEmpty())
         assertFalse(viewModel.uiState.value.isLoading)
+        assertNull(viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun `loadChats fetches every page until all chats are loaded`() = runTest {
+        val allChats = (1..250).map { index ->
+            Chat(
+                title = "Chat $index",
+                userId = testUserId,
+                sceneId = testSceneId,
+                id = UUID.nameUUIDFromBytes("chat-$index".toByteArray())
+            )
+        }
+        val requestedOffsets = mutableListOf<Int?>()
+        val viewModel = createViewModel { _, offset, limit ->
+            val start = offset ?: 0
+            val pageItems = allChats.drop(start).take(limit ?: 50)
+            requestedOffsets += offset
+            ApiResponsePageChat(
+                result = PageChat(
+                    items = pageItems,
+                    count = allChats.size,
+                    offset = start,
+                    limit = limit ?: 50
+                )
+            )
+        }
+
+        viewModel.loadChats()
+        advanceUntilIdle()
+
+        assertEquals(allChats.size, viewModel.uiState.value.chats.size)
+        assertEquals(listOf(0, 100, 200), requestedOffsets)
+        assertNull(viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun `loadChats stops paging when a short page comes back despite a larger count`() = runTest {
+        val viewModel = createViewModel { _, offset, _ ->
+            val items = if (offset == 0) testChats else emptyList()
+            ApiResponsePageChat(
+                result = PageChat(items = items, count = 999, offset = offset ?: 0, limit = 100)
+            )
+        }
+
+        viewModel.loadChats()
+        advanceUntilIdle()
+
+        assertEquals(2, viewModel.uiState.value.chats.size)
         assertNull(viewModel.uiState.value.errorMessage)
     }
 

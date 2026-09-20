@@ -72,11 +72,12 @@ class ChatListViewModel(
             entityId = sceneId
         )
     },
-    // Fetches a batch of messages across a scene's chats; the latest by
+    // Fetches one page of messages across a scene's chats; the latest by
     // date_created is used as the row's preview.
-    private val latestMessageCall: (chatIds: List<UUID>) -> ApiResponsePageMessage = { chatIds ->
-        MessagesApi().searchMessagesApiV1MessagesGet(chatsIds = chatIds, limit = 50, offset = 0)
-    },
+    private val latestMessageCall: (chatIds: List<UUID>, offset: Int?, limit: Int?) -> ApiResponsePageMessage =
+        { chatIds, offset, limit ->
+            MessagesApi().searchMessagesApiV1MessagesGet(chatsIds = chatIds, offset = offset, limit = limit)
+        },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
 
@@ -88,8 +89,7 @@ class ChatListViewModel(
 
         viewModelScope.launch(ioDispatcher) {
             try {
-                val response = searchChatsCall(listOf(userId), 0, 50)
-                val chats = response.result.items
+                val chats = fetchAllChats()
                 val groups = groupByScene(chats)
                 _uiState.value = _uiState.value.copy(
                     chats = chats,
@@ -104,6 +104,15 @@ class ChatListViewModel(
                 )
             }
         }
+    }
+
+    /**
+     * Loads every chat of the user via [fetchAllPages] — a single page would
+     * silently drop the newest chats (the backend paginates oldest-first).
+     */
+    private fun fetchAllChats(): List<Chat> = fetchAllPages { offset, limit ->
+        searchChatsCall(listOf(userId), offset, limit).result
+            .let { ListingPage(it.items, it.count) }
     }
 
     /**
@@ -152,7 +161,10 @@ class ChatListViewModel(
             null
         } else {
             runCatching {
-                val latest = latestMessageCall(group.chatIds).result.items
+                val latest = fetchAllPages { offset, limit ->
+                    latestMessageCall(group.chatIds, offset, limit).result
+                        .let { ListingPage(it.items, it.count) }
+                }
                     .sortedWith(compareBy(nullsLast<OffsetDateTime>()) { it.dateCreated })
                     .lastOrNull()
                 latest?.let { msg -> truncateForPreview(extractModelMessageText(msg.message)) }

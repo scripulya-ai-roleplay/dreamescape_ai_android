@@ -58,8 +58,11 @@ class StoryGalleryViewModel(
 
         viewModelScope.launch(ioDispatcher) {
             try {
-                val response = searchScenesCall(titleFilter, 0, 50)
-                val cards = response.result.items.map { StoryCardState(scene = it) }
+                val scenes = fetchAllPages { offset, limit ->
+                    searchScenesCall(titleFilter, offset, limit).result
+                        .let { ListingPage(it.items, it.count) }
+                }
+                val cards = scenes.map { StoryCardState(scene = it) }
                 _uiState.value = _uiState.value.copy(stories = cards, isLoading = false)
                 resolveImages(cards)
             } catch (e: Exception) {
