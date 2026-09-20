@@ -16,12 +16,15 @@ import org.junit.Before
 import org.junit.Test
 import org.openapitools.client.models.ApiResponseListCharacter
 import org.openapitools.client.models.ApiResponseListMediaAssetDTO
+import org.openapitools.client.models.ApiResponsePageChat
 import org.openapitools.client.models.ApiResponseScene
 import org.openapitools.client.models.Character
 import org.openapitools.client.models.InitialMessage
 import org.openapitools.client.models.MediaAssetDTO
 import org.openapitools.client.models.MediaEntityType
 import org.openapitools.client.models.MediaLayer
+import org.openapitools.client.models.ModelApiResponse
+import org.openapitools.client.models.PageChat
 import org.openapitools.client.models.Scene
 import java.util.UUID
 
@@ -164,6 +167,37 @@ class ScenePreviewViewModelTest {
 
         assertNull(viewModel.uiState.value.foregroundImageUrl)
         assertTrue(viewModel.uiState.value.foregroundResolved)
+    }
+
+    @Test
+    fun `startChat titles the new chat from the backend's total chat count`() = runTest {
+        var capturedTitle: String? = null
+        val viewModel = ScenePreviewViewModel(
+            sceneId = sceneId,
+            getSceneCall = { ApiResponseScene(result = testScene) },
+            sceneImageCall = { _ -> ApiResponseListMediaAssetDTO(result = emptyList()) },
+            getSceneCharactersCall = { _ -> ApiResponseListCharacter(result = emptyList()) },
+            characterImageCall = { _ -> ApiResponseListMediaAssetDTO(result = emptyList()) },
+            // More chats exist than any single page would return; only the total
+            // count keeps the numbering right.
+            searchChatsCall = { _, _, _ ->
+                ApiResponsePageChat(
+                    result = PageChat(items = emptyList(), count = 137, offset = 0, limit = 1)
+                )
+            },
+            createChatCall = { request ->
+                capturedTitle = request.title
+                ModelApiResponse(result = mapOf("id" to UUID.randomUUID().toString()))
+            },
+            userId = ownerId,
+            ioDispatcher = testDispatcher
+        )
+        advanceUntilIdle()
+
+        viewModel.startChat()
+        advanceUntilIdle()
+
+        assertEquals("Chat #138", capturedTitle)
     }
 
     @Test

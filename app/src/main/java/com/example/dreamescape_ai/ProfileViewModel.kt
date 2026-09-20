@@ -45,12 +45,14 @@ data class ProfileUiState(
  */
 class ProfileViewModel(
     private val appContext: Context,
-    private val searchOwnedCharactersCall: (List<UUID>) -> ApiResponsePageCharacter = { userIds ->
-        CharactersApi().searchCharacterApiV1CharactersGet(ownerIds = userIds, limit = 50)
-    },
-    private val searchBookmarkedCharactersCall: (List<UUID>) -> ApiResponsePageCharacter = { userIds ->
-        CharactersApi().searchCharacterApiV1CharactersGet(bookmarkedBy = userIds, limit = 50)
-    },
+    private val searchOwnedCharactersCall: (userIds: List<UUID>, offset: Int?, limit: Int?) -> ApiResponsePageCharacter =
+        { userIds, offset, limit ->
+            CharactersApi().searchCharacterApiV1CharactersGet(ownerIds = userIds, offset = offset, limit = limit)
+        },
+    private val searchBookmarkedCharactersCall: (userIds: List<UUID>, offset: Int?, limit: Int?) -> ApiResponsePageCharacter =
+        { userIds, offset, limit ->
+            CharactersApi().searchCharacterApiV1CharactersGet(bookmarkedBy = userIds, offset = offset, limit = limit)
+        },
     private val characterImageCall: (UUID) -> ApiResponseListMediaAssetDTO = { entityId ->
         MediaApi().getMediaForEntityApiV1MediaEntityEntityTypeEntityIdGet(
             entityType = MediaEntityType.character, entityId = entityId
@@ -80,18 +82,18 @@ class ProfileViewModel(
         if (_uiState.value.areCharactersLoaded) return
         viewModelScope.launch(ioDispatcher) {
             val owned = try {
-                searchOwnedCharactersCall(listOf(userId)).result.items
+                fetchAllCharacters(searchOwnedCharactersCall)
             } catch (_: Exception) {
                 emptyList()
             }
             val bookmarked = try {
-                searchBookmarkedCharactersCall(listOf(userId)).result.items
+                fetchAllCharacters(searchBookmarkedCharactersCall)
             } catch (_: Exception) {
                 emptyList()
             }
             if (owned.isEmpty() && bookmarked.isEmpty()) {
                 val failed = try {
-                    searchOwnedCharactersCall(listOf(userId))
+                    searchOwnedCharactersCall(listOf(userId), 0, 1)
                     false
                 } catch (_: Exception) {
                     true
@@ -113,6 +115,17 @@ class ProfileViewModel(
             )
             resolveImages(cards)
         }
+    }
+
+    /**
+     * Every character the given search matches, loaded via [fetchAllPages] —
+     * a single page would silently drop personas once they exceed one page.
+     */
+    private fun fetchAllCharacters(
+        search: (userIds: List<UUID>, offset: Int?, limit: Int?) -> ApiResponsePageCharacter
+    ): List<Character> = fetchAllPages { offset, limit ->
+        search(listOf(userId), offset, limit).result
+            .let { ListingPage(it.items, it.count) }
     }
 
     /** Persists the picked persona (null = "You"); refreshes via the store flow. */

@@ -42,9 +42,12 @@ class SceneListViewModel(
 
         viewModelScope.launch(ioDispatcher) {
             try {
-                val response = searchScenesCall(titleFilter, 0, 50)
+                val scenes = fetchAllPages { offset, limit ->
+                    searchScenesCall(titleFilter, offset, limit).result
+                        .let { ListingPage(it.items, it.count) }
+                }
                 _uiState.value = _uiState.value.copy(
-                    scenes = response.result.items,
+                    scenes = scenes,
                     isLoading = false
                 )
             } catch (e: Exception) {

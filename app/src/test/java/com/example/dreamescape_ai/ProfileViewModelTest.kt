@@ -86,11 +86,11 @@ class ProfileViewModelTest {
         var bookmarkedQueried: List<UUID>? = null
         val viewModel = ProfileViewModel(
             appContext = appContext,
-            searchOwnedCharactersCall = { ids ->
+            searchOwnedCharactersCall = { ids, _, _ ->
                 ownedQueried = ids
                 pageOf(listOf(ownedCharacter))
             },
-            searchBookmarkedCharactersCall = { ids ->
+            searchBookmarkedCharactersCall = { ids, _, _ ->
                 bookmarkedQueried = ids
                 pageOf(listOf(bookmarkedCharacter, ownedCharacter))
             },
@@ -110,11 +110,43 @@ class ProfileViewModelTest {
     }
 
     @Test
+    fun `loadCharacters fetches every page of owned and bookmarked characters`() = runTest {
+        val allOwned = (1..150).map { index ->
+            Character(
+                name = "Owned $index",
+                systemPrompt = "p",
+                id = UUID.nameUUIDFromBytes("owned-$index".toByteArray()),
+                ownerId = testUserId
+            )
+        }
+        val viewModel = ProfileViewModel(
+            appContext = ApplicationProvider.getApplicationContext(),
+            searchOwnedCharactersCall = { _, offset, limit ->
+                val start = offset ?: 0
+                val items = allOwned.drop(start).take(limit ?: 50)
+                ApiResponsePageCharacter(
+                    result = PageCharacter(items = items, count = allOwned.size, offset = start, limit = limit ?: 50)
+                )
+            },
+            searchBookmarkedCharactersCall = { _, _, _ -> pageOf(emptyList()) },
+            characterImageCall = { ApiResponseListMediaAssetDTO(result = emptyList()) },
+            userId = testUserId,
+            ioDispatcher = testDispatcher
+        )
+
+        viewModel.loadCharacters()
+        advanceUntilIdle()
+
+        assertEquals(allOwned.size, viewModel.uiState.value.characters.size)
+        assertNull(viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
     fun `loadCharacters sets error when both lookups fail`() = runTest {
         val viewModel = ProfileViewModel(
             appContext = ApplicationProvider.getApplicationContext(),
-            searchOwnedCharactersCall = { throw RuntimeException("backend down") },
-            searchBookmarkedCharactersCall = { throw RuntimeException("backend down") },
+            searchOwnedCharactersCall = { _, _, _ -> throw RuntimeException("backend down") },
+            searchBookmarkedCharactersCall = { _, _, _ -> throw RuntimeException("backend down") },
             characterImageCall = { ApiResponseListMediaAssetDTO(result = emptyList()) },
             userId = testUserId,
             ioDispatcher = testDispatcher
@@ -134,8 +166,8 @@ class ProfileViewModelTest {
         // which a paused test scheduler would deadlock against runBlocking.
         val viewModel = ProfileViewModel(
             appContext = ApplicationProvider.getApplicationContext(),
-            searchOwnedCharactersCall = { pageOf(emptyList()) },
-            searchBookmarkedCharactersCall = { pageOf(emptyList()) },
+            searchOwnedCharactersCall = { _, _, _ -> pageOf(emptyList()) },
+            searchBookmarkedCharactersCall = { _, _, _ -> pageOf(emptyList()) },
             characterImageCall = { ApiResponseListMediaAssetDTO(result = emptyList()) },
             userId = testUserId,
             ioDispatcher = Dispatchers.Default
@@ -156,8 +188,8 @@ class ProfileViewModelTest {
     fun `selectPersona with null clears the selection`() = runBlocking {
         val viewModel = ProfileViewModel(
             appContext = ApplicationProvider.getApplicationContext(),
-            searchOwnedCharactersCall = { pageOf(emptyList()) },
-            searchBookmarkedCharactersCall = { pageOf(emptyList()) },
+            searchOwnedCharactersCall = { _, _, _ -> pageOf(emptyList()) },
+            searchBookmarkedCharactersCall = { _, _, _ -> pageOf(emptyList()) },
             characterImageCall = { ApiResponseListMediaAssetDTO(result = emptyList()) },
             userId = testUserId,
             ioDispatcher = Dispatchers.Default
@@ -183,8 +215,8 @@ class ProfileViewModelTest {
         val portraitId = ownedCharacter.id!!
         val viewModel = ProfileViewModel(
             appContext = ApplicationProvider.getApplicationContext(),
-            searchOwnedCharactersCall = { pageOf(listOf(ownedCharacter)) },
-            searchBookmarkedCharactersCall = { pageOf(emptyList()) },
+            searchOwnedCharactersCall = { _, _, _ -> pageOf(listOf(ownedCharacter)) },
+            searchBookmarkedCharactersCall = { _, _, _ -> pageOf(emptyList()) },
             characterImageCall = { id ->
                 ApiResponseListMediaAssetDTO(
                     result = listOf(

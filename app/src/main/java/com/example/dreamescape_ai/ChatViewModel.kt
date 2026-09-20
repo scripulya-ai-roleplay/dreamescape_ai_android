@@ -78,9 +78,10 @@ data class ChatUiState(
 
 class ChatViewModel(
     private val chatId: UUID,
-    private val loadMessagesCall: (chatId: UUID) -> ApiResponsePageMessage = { id ->
-        MessagesApi().searchMessagesApiV1MessagesGet(chatsIds = listOf(id), limit = 100, offset = 0)
-    },
+    private val loadMessagesCall: (chatId: UUID, offset: Int?, limit: Int?) -> ApiResponsePageMessage =
+        { id, offset, limit ->
+            MessagesApi().searchMessagesApiV1MessagesGet(chatsIds = listOf(id), offset = offset, limit = limit)
+        },
     // Fetches the chat so its scene_id is known; used to resolve the scene's
     // preview image for the chat background.
     private val getChatCall: (chatId: UUID) -> ApiResponseChat = { id ->
@@ -155,9 +156,8 @@ class ChatViewModel(
 
         viewModelScope.launch(ioDispatcher) {
             try {
-                val response = loadMessagesCall(chatId)
                 _uiState.value = _uiState.value.copy(
-                    messages = response.result.items.sortedChronologically(),
+                    messages = fetchAllMessages().sortedChronologically(),
                     isLoading = false
                 )
             } catch (e: Exception) {
@@ -167,6 +167,15 @@ class ChatViewModel(
                 )
             }
         }
+    }
+
+    /**
+     * The chat's full history, loaded via [fetchAllPages] — a single page
+     * would silently drop older messages once they exceed one page.
+     */
+    private fun fetchAllMessages(): List<Message> = fetchAllPages { offset, limit ->
+        loadMessagesCall(chatId, offset, limit).result
+            .let { ListingPage(it.items, it.count) }
     }
 
     /**
@@ -313,8 +322,7 @@ class ChatViewModel(
                 )
                 sendMessageCall(dto)
                 // Reload so the user message (and any pending model message) is shown.
-                val response = loadMessagesCall(chatId)
-                val messages = response.result.items.sortedChronologically()
+                val messages = fetchAllMessages().sortedChronologically()
                 // The seeded greeting now appears in the list; clear the carousel.
                 _uiState.value = _uiState.value.copy(
                     messages = messages,
@@ -348,9 +356,8 @@ class ChatViewModel(
         viewModelScope.launch(ioDispatcher) {
             try {
                 updateMessageCall(messageId, text)
-                val response = loadMessagesCall(chatId)
                 _uiState.value = _uiState.value.copy(
-                    messages = response.result.items.sortedChronologically(),
+                    messages = fetchAllMessages().sortedChronologically(),
                     errorMessage = null
                 )
             } catch (e: Exception) {
@@ -366,9 +373,8 @@ class ChatViewModel(
         viewModelScope.launch(ioDispatcher) {
             try {
                 deleteMessageCall(messageId)
-                val response = loadMessagesCall(chatId)
                 _uiState.value = _uiState.value.copy(
-                    messages = response.result.items.sortedChronologically(),
+                    messages = fetchAllMessages().sortedChronologically(),
                     errorMessage = null
                 )
             } catch (e: Exception) {
@@ -654,12 +660,11 @@ class ChatViewModel(
     private fun reloadAfterReply() {
         viewModelScope.launch(ioDispatcher) {
             try {
-                val response = loadMessagesCall(chatId)
                 // Swap the streaming bubble for the authoritative message in the same
                 // update so the reply never flickers out between the two. On failure the
                 // streamed text is kept as the best available rendering of the reply.
                 _uiState.value = _uiState.value.copy(
-                    messages = response.result.items.sortedChronologically(),
+                    messages = fetchAllMessages().sortedChronologically(),
                     streamingText = "",
                     streamingThinking = ""
                 )

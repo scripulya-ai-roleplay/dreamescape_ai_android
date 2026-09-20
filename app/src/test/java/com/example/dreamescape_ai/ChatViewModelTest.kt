@@ -89,7 +89,7 @@ class ChatViewModelTest {
     }
 
     private fun createViewModel(
-        onLoadMessages: (UUID) -> ApiResponsePageMessage = { createPage() },
+        onLoadMessages: (UUID, Int?, Int?) -> ApiResponsePageMessage = { _, _, _ -> createPage() },
         onSendMessage: (SendMessageRequest) -> ApiResponseMessage = { messageResponse(it.message) }
     ): ChatViewModel {
         return ChatViewModel(
@@ -126,7 +126,7 @@ class ChatViewModelTest {
     @Test
     fun `loadMessages fetches messages for the chat`() = runTest {
         var capturedChatId: UUID? = null
-        val viewModel = createViewModel(onLoadMessages = { id ->
+        val viewModel = createViewModel(onLoadMessages = { id, _, _ ->
             capturedChatId = id
             createPage()
         })
@@ -137,6 +137,38 @@ class ChatViewModelTest {
         assertEquals(testChatId, capturedChatId)
         assertEquals(2, viewModel.uiState.value.messages.size)
         assertFalse(viewModel.uiState.value.isLoading)
+        assertNull(viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun `loadMessages fetches every page until the full history is loaded`() = runTest {
+        val allMessages = (1..250).map { index ->
+            Message(
+                message = "Message $index",
+                chatId = testChatId,
+                role = ChatRoles.user,
+                id = UUID.nameUUIDFromBytes("message-$index".toByteArray())
+            )
+        }
+        val requestedOffsets = mutableListOf<Int?>()
+        val viewModel = createViewModel(onLoadMessages = { _, offset, limit ->
+            val start = offset ?: 0
+            requestedOffsets += offset
+            ApiResponsePageMessage(
+                result = PageMessage(
+                    items = allMessages.drop(start).take(limit ?: 100),
+                    count = allMessages.size,
+                    offset = start,
+                    limit = limit ?: 100
+                )
+            )
+        })
+
+        viewModel.loadMessages()
+        advanceUntilIdle()
+
+        assertEquals(allMessages.size, viewModel.uiState.value.messages.size)
+        assertEquals(listOf(0, 100, 200), requestedOffsets)
         assertNull(viewModel.uiState.value.errorMessage)
     }
 
@@ -168,7 +200,7 @@ class ChatViewModelTest {
                 dateCreated = middle
             )
         )
-        val viewModel = createViewModel(onLoadMessages = { createPage(unordered) })
+        val viewModel = createViewModel(onLoadMessages = { _, _, _ -> createPage(unordered) })
 
         viewModel.loadMessages()
         advanceUntilIdle()
@@ -185,7 +217,7 @@ class ChatViewModelTest {
         val newer = OffsetDateTime.parse("2024-01-01T12:00:00Z")
         var messagesToReturn = emptyList<Message>()
         val viewModel = createViewModel(
-            onLoadMessages = { createPage(messagesToReturn) },
+            onLoadMessages = { _, _, _ -> createPage(messagesToReturn) },
             onSendMessage = { dto ->
                 messagesToReturn = listOf(
                     Message(
@@ -219,7 +251,7 @@ class ChatViewModelTest {
 
     @Test
     fun `loadMessages sets error message on failure`() = runTest {
-        val viewModel = createViewModel(onLoadMessages = { throw RuntimeException("Network error") })
+        val viewModel = createViewModel(onLoadMessages = { _, _, _ -> throw RuntimeException("Network error") })
 
         viewModel.loadMessages()
         advanceUntilIdle()
@@ -249,7 +281,7 @@ class ChatViewModelTest {
         var captured: SendMessageRequest? = null
         var messagesToReturn = emptyList<Message>()
         val viewModel = createViewModel(
-            onLoadMessages = { createPage(messagesToReturn) },
+            onLoadMessages = { _, _, _ -> createPage(messagesToReturn) },
             onSendMessage = { dto ->
                 captured = dto
                 messagesToReturn = listOf(
@@ -298,7 +330,7 @@ class ChatViewModelTest {
         var sentDto: SendMessageRequest? = null
         val viewModel = ChatViewModel(
             chatId = testChatId,
-            loadMessagesCall = { createPage(emptyList()) },
+            loadMessagesCall = { _, _, _ -> createPage(emptyList()) },
             sendMessageCall = { dto ->
                 sentDto = dto
                 messageResponse(dto.message)
@@ -351,7 +383,7 @@ class ChatViewModelTest {
         var sceneLookups = 0
         val viewModel = ChatViewModel(
             chatId = testChatId,
-            loadMessagesCall = { createPage(emptyList()) },
+            loadMessagesCall = { _, _, _ -> createPage(emptyList()) },
             sendMessageCall = { messageResponse(it.message) },
             // A chat whose scene was deleted → scene_id null, read-only.
             getChatCall = {
@@ -394,7 +426,7 @@ class ChatViewModelTest {
         var lookedUpId: UUID? = null
         val viewModel = ChatViewModel(
             chatId = testChatId,
-            loadMessagesCall = { createPage(emptyList()) },
+            loadMessagesCall = { _, _, _ -> createPage(emptyList()) },
             sendMessageCall = { messageResponse(it.message) },
             getChatCall = {
                 ApiResponseChat(
@@ -432,7 +464,7 @@ class ChatViewModelTest {
     fun `loadChat without persona leaves the name null`() = runTest {
         val viewModel = ChatViewModel(
             chatId = testChatId,
-            loadMessagesCall = { createPage(emptyList()) },
+            loadMessagesCall = { _, _, _ -> createPage(emptyList()) },
             sendMessageCall = { messageResponse(it.message) },
             getChatCall = {
                 ApiResponseChat(

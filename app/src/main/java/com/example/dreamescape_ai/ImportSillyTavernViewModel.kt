@@ -147,9 +147,12 @@ class ImportSillyTavernViewModel(
     private suspend fun loadAttachTargets() {
         if (_uiState.value.attachTargets.isNotEmpty()) return
         try {
-            val page = searchCharactersCall(listOf(ownerId), 0, 100).result
+            val characters = fetchAllPages { offset, limit ->
+                searchCharactersCall(listOf(ownerId), offset, limit).result
+                    .let { ListingPage(it.items, it.count) }
+            }
             _uiState.value = _uiState.value.copy(
-                attachTargets = page.items.mapNotNull { c ->
+                attachTargets = characters.mapNotNull { c ->
                     c.id?.let { AttachTarget(it, c.name) }
                 }
             )

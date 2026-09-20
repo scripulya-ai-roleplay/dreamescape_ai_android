@@ -62,8 +62,11 @@ class MediaGalleryViewModel(
         _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
         viewModelScope.launch(ioDispatcher) {
             try {
-                val response = searchMediaCall(_uiState.value.filter, null, null, 50, 0)
-                _uiState.value = _uiState.value.copy(media = response.result.items, isLoading = false)
+                val media = fetchAllPages { offset, limit ->
+                    searchMediaCall(_uiState.value.filter, null, null, limit, offset).result
+                        .let { ListingPage(it.items, it.count) }
+                }
+                _uiState.value = _uiState.value.copy(media = media, isLoading = false)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,

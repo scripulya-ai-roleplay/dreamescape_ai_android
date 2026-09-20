@@ -148,6 +148,39 @@ class SceneListViewModelTest {
     }
 
     @Test
+    fun `loadScenes fetches every page until all scenes are loaded`() = runTest {
+        val allScenes = (1..120).map { index ->
+            Scene(
+                ownerId = testOwnerId,
+                title = "Scene $index",
+                backgroundPrompt = "p",
+                initialMessages = listOf(InitialMessage(text = "hi")),
+                id = UUID.nameUUIDFromBytes("scene-$index".toByteArray())
+            )
+        }
+        val requestedOffsets = mutableListOf<Int?>()
+        val viewModel = createViewModel { _, offset, limit ->
+            val start = offset ?: 0
+            requestedOffsets += offset
+            ApiResponsePageScene(
+                result = PageScene(
+                    items = allScenes.drop(start).take(limit ?: 50),
+                    count = allScenes.size,
+                    offset = start,
+                    limit = limit ?: 50
+                )
+            )
+        }
+
+        viewModel.loadScenes()
+        advanceUntilIdle()
+
+        assertEquals(allScenes.size, viewModel.uiState.value.scenes.size)
+        assertEquals(listOf(0, 100), requestedOffsets)
+        assertNull(viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
     fun `loadScenes sets error message on failure`() = runTest {
         val viewModel = createViewModel { _, _, _ ->
             throw RuntimeException("Network error")
