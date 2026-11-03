@@ -74,6 +74,7 @@ import org.openapitools.client.models.Perspective
 import org.openapitools.client.models.Preset
 import org.openapitools.client.models.ReasoningEffort
 import org.openapitools.client.models.ResponseLength
+import org.openapitools.client.models.SummaryChapter
 import org.openapitools.client.models.TokenLimit
 import org.openapitools.client.models.Toggle
 import java.math.BigDecimal
@@ -157,6 +158,7 @@ fun ChatSettingsScreen(
     val settings = uiState.settings
     val model = uiState.selectedModel
     var showModelPicker by remember { mutableStateOf(false) }
+    var showSummarizeModelPicker by remember { mutableStateOf(false) }
     if (uiState.isLoading || settings == null) {
         Box(
             modifier = modifier.fillMaxSize(),
@@ -304,6 +306,13 @@ fun ChatSettingsScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        SummarizationSection(
+            chapters = uiState.chapters,
+            isSummarizing = uiState.isSummarizing,
+            queuedCount = uiState.summarizeQueuedCount,
+            onSummarizeClick = { showSummarizeModelPicker = true }
+        )
+
         Button(
             onClick = viewModel::save,
             enabled = !uiState.isSaving,
@@ -340,6 +349,27 @@ fun ChatSettingsScreen(
             }
         }
     }
+
+    if (showSummarizeModelPicker) {
+        ModalBottomSheet(onDismissRequest = { showSummarizeModelPicker = false }) {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(LLMModelType.values().toList()) { option ->
+                    ModelCard(
+                        model = option,
+                        isSelected = false,
+                        onClick = {
+                            viewModel.summarize(option)
+                            showSummarizeModelPicker = false
+                        }
+                    )
+                }
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -364,6 +394,79 @@ private fun <T> EnumButtonGroup(
                 ) {
                     Text(optionText(option), maxLines = 1)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummarizationSection(
+    chapters: List<SummaryChapter>?,
+    isSummarizing: Boolean,
+    queuedCount: Int,
+    onSummarizeClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // null means the preview call failed — keep the section hidden rather than
+    // showing a misleading "nothing to summarize".
+    if (chapters == null) return
+
+    Card(modifier = modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("Summarization", style = MaterialTheme.typography.titleSmall)
+            if (chapters.isEmpty()) {
+                Text(
+                    "Nothing to summarize yet.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                val totalTokens = chapters.sumOf { it.tokensCount }
+                Text(
+                    "${chapters.size} chapter(s), ~${totalTokens.decimalFormat()} tokens total",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                chapters.forEach { chapter ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "Chapter ${chapter.chapterNumber} (${chapter.messagesCount} messages)",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            "~${chapter.tokensCount.decimalFormat()} tok",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            Button(
+                onClick = onSummarizeClick,
+                enabled = chapters.isNotEmpty() && !isSummarizing,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (isSummarizing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.height(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Summarize")
+                }
+            }
+            if (queuedCount > 0) {
+                Text(
+                    "Queued $queuedCount summarization task(s).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
         }
     }

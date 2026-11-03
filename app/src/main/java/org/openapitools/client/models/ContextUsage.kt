@@ -29,6 +29,7 @@ import com.squareup.moshi.JsonClass
  * @param totalTokens 
  * @param estimated 
  * @param models 
+ * @param summariesCount 
  */
 
 
@@ -50,7 +51,10 @@ data class ContextUsage (
     val estimated: kotlin.Boolean,
 
     @Json(name = "models")
-    val models: kotlin.collections.List<ModelContextUsage>
+    val models: kotlin.collections.List<ModelContextUsage>,
+
+    @Json(name = "summaries_count")
+    val summariesCount: kotlin.Int? = 0
 
 ) {
 

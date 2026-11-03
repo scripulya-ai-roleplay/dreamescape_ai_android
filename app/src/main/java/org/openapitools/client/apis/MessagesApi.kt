@@ -271,6 +271,7 @@ class MessagesApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClien
      * @param ids  (optional)
      * @param chatsIds  (optional)
      * @param roles  (optional)
+     * @param isArchived  (optional)
      * @param limit  (optional, default to 50)
      * @param offset  (optional, default to 0)
      * @return ApiResponsePageMessage
@@ -282,8 +283,8 @@ class MessagesApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClien
      */
     @Suppress("UNCHECKED_CAST")
     @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
-    fun searchMessagesApiV1MessagesGet(ids: kotlin.collections.List<java.util.UUID>? = null, chatsIds: kotlin.collections.List<java.util.UUID>? = null, roles: kotlin.collections.List<ChatRoles>? = null, limit: kotlin.Int? = 50, offset: kotlin.Int? = 0) : ApiResponsePageMessage {
-        val localVarResponse = searchMessagesApiV1MessagesGetWithHttpInfo(ids = ids, chatsIds = chatsIds, roles = roles, limit = limit, offset = offset)
+    fun searchMessagesApiV1MessagesGet(ids: kotlin.collections.List<java.util.UUID>? = null, chatsIds: kotlin.collections.List<java.util.UUID>? = null, roles: kotlin.collections.List<ChatRoles>? = null, isArchived: kotlin.Boolean? = null, limit: kotlin.Int? = 50, offset: kotlin.Int? = 0) : ApiResponsePageMessage {
+        val localVarResponse = searchMessagesApiV1MessagesGetWithHttpInfo(ids = ids, chatsIds = chatsIds, roles = roles, isArchived = isArchived, limit = limit, offset = offset)
 
         return when (localVarResponse.responseType) {
             ResponseType.Success -> (localVarResponse as Success<*>).data as ApiResponsePageMessage
@@ -306,6 +307,7 @@ class MessagesApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClien
      * @param ids  (optional)
      * @param chatsIds  (optional)
      * @param roles  (optional)
+     * @param isArchived  (optional)
      * @param limit  (optional, default to 50)
      * @param offset  (optional, default to 0)
      * @return ApiResponse<ApiResponsePageMessage?>
@@ -314,8 +316,8 @@ class MessagesApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClien
      */
     @Suppress("UNCHECKED_CAST")
     @Throws(IllegalStateException::class, IOException::class)
-    fun searchMessagesApiV1MessagesGetWithHttpInfo(ids: kotlin.collections.List<java.util.UUID>?, chatsIds: kotlin.collections.List<java.util.UUID>?, roles: kotlin.collections.List<ChatRoles>?, limit: kotlin.Int?, offset: kotlin.Int?) : ApiResponse<ApiResponsePageMessage?> {
-        val localVariableConfig = searchMessagesApiV1MessagesGetRequestConfig(ids = ids, chatsIds = chatsIds, roles = roles, limit = limit, offset = offset)
+    fun searchMessagesApiV1MessagesGetWithHttpInfo(ids: kotlin.collections.List<java.util.UUID>?, chatsIds: kotlin.collections.List<java.util.UUID>?, roles: kotlin.collections.List<ChatRoles>?, isArchived: kotlin.Boolean?, limit: kotlin.Int?, offset: kotlin.Int?) : ApiResponse<ApiResponsePageMessage?> {
+        val localVariableConfig = searchMessagesApiV1MessagesGetRequestConfig(ids = ids, chatsIds = chatsIds, roles = roles, isArchived = isArchived, limit = limit, offset = offset)
 
         return request<Unit, ApiResponsePageMessage>(
             localVariableConfig
@@ -328,11 +330,12 @@ class MessagesApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClien
      * @param ids  (optional)
      * @param chatsIds  (optional)
      * @param roles  (optional)
+     * @param isArchived  (optional)
      * @param limit  (optional, default to 50)
      * @param offset  (optional, default to 0)
      * @return RequestConfig
      */
-    fun searchMessagesApiV1MessagesGetRequestConfig(ids: kotlin.collections.List<java.util.UUID>?, chatsIds: kotlin.collections.List<java.util.UUID>?, roles: kotlin.collections.List<ChatRoles>?, limit: kotlin.Int?, offset: kotlin.Int?) : RequestConfig<Unit> {
+    fun searchMessagesApiV1MessagesGetRequestConfig(ids: kotlin.collections.List<java.util.UUID>?, chatsIds: kotlin.collections.List<java.util.UUID>?, roles: kotlin.collections.List<ChatRoles>?, isArchived: kotlin.Boolean?, limit: kotlin.Int?, offset: kotlin.Int?) : RequestConfig<Unit> {
         val localVariableBody = null
         val localVariableQuery: MultiValueMap = mutableMapOf<kotlin.String, kotlin.collections.List<kotlin.String>>()
             .apply {
@@ -344,6 +347,9 @@ class MessagesApi(basePath: kotlin.String = defaultBasePath, client: OkHttpClien
                 }
                 if (roles != null) {
                     put("roles", toMultiValue(roles.toList(), "multi"))
+                }
+                if (isArchived != null) {
+                    put("is_archived", listOf(isArchived.toString()))
                 }
                 if (limit != null) {
                     put("limit", listOf(limit.toString()))

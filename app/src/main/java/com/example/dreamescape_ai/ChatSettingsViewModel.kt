@@ -13,18 +13,24 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.openapitools.client.apis.ChatSettingsApi
 import org.openapitools.client.apis.ChatsApi
+import org.openapitools.client.apis.SummarizationApi
 import org.openapitools.client.infrastructure.ClientException
 import org.openapitools.client.models.ApiResponseChatSettings
 import org.openapitools.client.models.ApiResponseContextUsage
+import org.openapitools.client.models.ApiResponseListChatSummary
+import org.openapitools.client.models.ApiResponseListSummaryChapter
+import org.openapitools.client.models.ChapterRange
 import org.openapitools.client.models.ChatSettings
 import org.openapitools.client.models.ContextUsage
 import org.openapitools.client.models.ControlBehavior
+import org.openapitools.client.models.CreateSummariesDTO
 import org.openapitools.client.models.FunctionsSettings
 import org.openapitools.client.models.LLMModelType
 import org.openapitools.client.models.Perspective
 import org.openapitools.client.models.Preset
 import org.openapitools.client.models.ReasoningEffort
 import org.openapitools.client.models.ResponseLength
+import org.openapitools.client.models.SummaryChapter
 import org.openapitools.client.models.TemperatureSettings
 import org.openapitools.client.models.TokenLimit
 import org.openapitools.client.models.Toggle
@@ -35,9 +41,12 @@ data class ChatSettingsUiState(
     val settings: ChatSettings? = null,
     val selectedModel: LLMModelType = ChatModelStore.DEFAULT_MODEL,
     val contextUsage: ContextUsage? = null,
+    val chapters: List<SummaryChapter>? = null,
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
+    val isSummarizing: Boolean = false,
     val errorMessage: String? = null,
+    val summarizeQueuedCount: Int = 0,
     val saved: Boolean = false
 )
 
@@ -53,6 +62,12 @@ class ChatSettingsViewModel(
     private val getContextUsageCall: (UUID) -> ApiResponseContextUsage = { id ->
         ChatsApi().getChatContextUsageApiV1ChatsChatIdContextUsageGet(id)
     },
+    private val listChaptersCall: (UUID) -> ApiResponseListSummaryChapter = { id ->
+        SummarizationApi().listChaptersApiV1SummarizationChaptersGet(id)
+    },
+    private val createSummariesCall: (CreateSummariesDTO) -> ApiResponseListChatSummary = { dto ->
+        SummarizationApi().createSummariesApiV1SummarizationPost(dto)
+    },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
 
@@ -63,6 +78,7 @@ class ChatSettingsViewModel(
         loadSettings()
         loadSelectedModel()
         loadContextUsage()
+        loadChapters()
     }
 
     fun loadSettings() {
@@ -103,6 +119,51 @@ class ChatSettingsViewModel(
                 _uiState.value = _uiState.value.copy(contextUsage = usage)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(contextUsage = null)
+            }
+        }
+    }
+
+    /**
+     * Fetches the chapter breakdown the backend would summarize right now
+     * (unarchived, not-yet-summarized messages grouped into token-bounded
+     * chunks). Non-fatal, same as [loadContextUsage]: the section just stays
+     * hidden when the call fails.
+     */
+    fun loadChapters() {
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                val chapters = listChaptersCall(chatId).result
+                _uiState.value = _uiState.value.copy(chapters = chapters)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(chapters = null)
+            }
+        }
+    }
+
+    /** Queues summarization of all currently planned chapters with [model]. */
+    fun summarize(model: LLMModelType) {
+        val chapters = _uiState.value.chapters.orEmpty()
+        if (chapters.isEmpty() || _uiState.value.isSummarizing) return
+        _uiState.value = _uiState.value.copy(isSummarizing = true, errorMessage = null)
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                val dto = CreateSummariesDTO(
+                    chatId = chatId,
+                    llmModel = model,
+                    chapters = chapters.map {
+                        ChapterRange(fromMessageId = it.fromMessageId, untilMessageId = it.untilMessageId)
+                    }
+                )
+                val queued = createSummariesCall(dto).result.size
+                _uiState.value = _uiState.value.copy(
+                    isSummarizing = false,
+                    summarizeQueuedCount = queued
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isSummarizing = false,
+                    errorMessage = e.message ?: "Failed to start summarization"
+                )
             }
         }
     }

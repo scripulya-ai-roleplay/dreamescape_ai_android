@@ -32,6 +32,8 @@ import com.squareup.moshi.JsonClass
  * @param dateCreated 
  * @param dateEdited 
  * @param reasoning 
+ * @param isArchived 
+ * @param summaryId 
  */
 
 
@@ -59,7 +61,13 @@ data class Message (
     val dateEdited: java.time.OffsetDateTime? = null,
 
     @Json(name = "reasoning")
-    val reasoning: kotlin.String? = null
+    val reasoning: kotlin.String? = null,
+
+    @Json(name = "is_archived")
+    val isArchived: kotlin.Boolean? = false,
+
+    @Json(name = "summary_id")
+    val summaryId: java.util.UUID? = null
 
 ) {
 
