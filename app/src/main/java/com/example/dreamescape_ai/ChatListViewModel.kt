@@ -50,7 +50,8 @@ data class ChatGroup(
     val latestChat: Chat,
     val sceneName: String? = null,
     val sceneImageUrl: String? = null,
-    val latestMessagePreview: String? = null
+    val latestMessagePreview: String? = null,
+    val latestMessageDate: OffsetDateTime? = null
 ) {
     /** Stable LazyColumn key: scene id, or a sentinel for the scene-less group. */
     val listKey: String get() = sceneId?.toString() ?: "no-scene"
@@ -116,9 +117,11 @@ class ChatListViewModel(
     }
 
     /**
-     * Collapses [chats] into one group per scene, ordered most-recently-active
-     * first. The backend lists chats oldest-first, so each group's last chat is
-     * its newest — that is the [ChatGroup.latestChat] selecting the scene opens.
+     * Collapses [chats] into one group per scene. The backend lists chats
+     * oldest-first, so each group's last chat is its newest — that is the
+     * [ChatGroup.latestChat] selecting the scene opens. The initial row order
+     * follows chat creation; the final order (most recent message first) is
+     * applied once message previews resolve in [resolveGroupDetails].
      * Chats whose scene was deleted (null scene_id) share one group.
      */
     private fun groupByScene(chats: List<Chat>): List<ChatGroup> =
@@ -142,37 +145,48 @@ class ChatListViewModel(
     private fun resolveGroupDetails(groups: List<ChatGroup>) {
         viewModelScope.launch(ioDispatcher) {
             groups.map { group -> async { resolveGroup(group) } }.awaitAll()
+            // Re-sort only after every group resolved: sorting incrementally
+            // would make rows jump each time a preview lands. Groups without a
+            // dated message (failed lookup, no messages) sink to the bottom,
+            // keeping their creation-order tie-break.
+            _uiState.value = _uiState.value.copy(
+                groups = _uiState.value.groups.sortedWith(
+                    compareByDescending<ChatGroup> { it.latestMessageDate != null }
+                        .thenByDescending { it.latestMessageDate }
+                )
+            )
         }
     }
 
     private suspend fun resolveGroup(group: ChatGroup) {
-        // Scene-less groups (deleted scene) have nothing to resolve against.
-        if (group.sceneId == null) {
-            updateGroup(group.sceneId) { it }
-            return
+        val sceneName = group.sceneId?.let { sceneId ->
+            runCatching { getSceneCall(sceneId).result.title }.getOrNull()
         }
-        val sceneName = runCatching { getSceneCall(group.sceneId).result.title }.getOrNull()
 
-        val imageUrl = runCatching {
-            sceneImageCall(group.sceneId).result.firstOrNull()?.url
-        }.getOrNull()
+        val imageUrl = group.sceneId?.let { sceneId ->
+            runCatching { sceneImageCall(sceneId).result.firstOrNull()?.url }.getOrNull()
+        }
 
-        val preview = if (group.chatIds.isEmpty()) {
+        val latest = if (group.chatIds.isEmpty()) {
             null
         } else {
             runCatching {
-                val latest = fetchAllPages { offset, limit ->
+                fetchAllPages { offset, limit ->
                     latestMessageCall(group.chatIds, offset, limit).result
                         .let { ListingPage(it.items, it.count) }
                 }
                     .sortedWith(compareBy(nullsLast<OffsetDateTime>()) { it.dateCreated })
                     .lastOrNull()
-                latest?.let { msg -> truncateForPreview(extractModelMessageText(msg.message)) }
             }.getOrNull()
         }
 
         updateGroup(group.sceneId) {
-            it.copy(sceneName = sceneName, sceneImageUrl = imageUrl, latestMessagePreview = preview)
+            it.copy(
+                sceneName = sceneName,
+                sceneImageUrl = imageUrl,
+                latestMessagePreview = latest?.let { msg -> truncateForPreview(extractModelMessageText(msg.message)) },
+                latestMessageDate = latest?.dateCreated
+            )
         }
     }
 

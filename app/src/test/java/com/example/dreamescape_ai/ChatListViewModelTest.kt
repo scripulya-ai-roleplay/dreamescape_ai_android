@@ -15,8 +15,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.openapitools.client.models.ApiResponsePageChat
+import org.openapitools.client.models.ApiResponsePageMessage
 import org.openapitools.client.models.Chat
+import org.openapitools.client.models.ChatRoles
+import org.openapitools.client.models.Message
 import org.openapitools.client.models.PageChat
+import org.openapitools.client.models.PageMessage
+import java.time.OffsetDateTime
 import java.util.UUID
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -215,6 +220,62 @@ class ChatListViewModelTest {
 
         assertEquals(2, viewModel.uiState.value.chats.size)
         assertNull(viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
+    fun `groups are ordered by most recent message once previews resolve`() = runTest {
+        val otherSceneId = UUID.fromString("00000000-0000-0000-0000-000000000003")
+        // Backend lists chats oldest-first, so creation order alone would put
+        // newSceneChat's group first — but oldSceneChat's scene has the more
+        // recent message and must win the final ordering.
+        val oldSceneChat = Chat(
+            title = "Old Scene Chat",
+            userId = testUserId,
+            sceneId = testSceneId,
+            id = UUID.fromString("00000000-0000-0000-0000-000000000010")
+        )
+        val newSceneChat = Chat(
+            title = "New Scene Chat",
+            userId = testUserId,
+            sceneId = otherSceneId,
+            id = UUID.fromString("00000000-0000-0000-0000-000000000011")
+        )
+        val messageDates = mapOf(
+            oldSceneChat.id to "2026-11-04T12:00:00Z",
+            newSceneChat.id to "2026-11-01T12:00:00Z"
+        )
+        val viewModel = ChatListViewModel(
+            userId = testUserId,
+            searchChatsCall = { _, _, _ -> createResponse(listOf(oldSceneChat, newSceneChat)) },
+            getSceneCall = { throw IllegalStateException("not used in tests") },
+            sceneImageCall = { throw IllegalStateException("not used in tests") },
+            latestMessageCall = { chatIds, _, _ ->
+                ApiResponsePageMessage(
+                    result = PageMessage(
+                        items = listOf(
+                            Message(
+                                message = "hello",
+                                chatId = chatIds.first(),
+                                role = ChatRoles.user,
+                                dateCreated = OffsetDateTime.parse(messageDates.getValue(chatIds.first()))
+                            )
+                        ),
+                        count = 1,
+                        offset = 0,
+                        limit = 50
+                    )
+                )
+            },
+            ioDispatcher = testDispatcher
+        )
+
+        viewModel.loadChats()
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(testSceneId, otherSceneId),
+            viewModel.uiState.value.groups.map { it.sceneId }
+        )
     }
 
     @Test
