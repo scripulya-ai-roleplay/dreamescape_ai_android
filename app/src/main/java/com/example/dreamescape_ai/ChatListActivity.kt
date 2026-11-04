@@ -165,7 +165,10 @@ fun ChatListScreen(
             }
         }
 
-        selectedGroup?.let { group ->
+        selectedGroup?.let { selected ->
+            // Look the group up in the current state so the overlay picks up
+            // scene name and per-chat message dates as they resolve.
+            val group = uiState.groups.firstOrNull { it.listKey == selected.listKey } ?: selected
             SceneChatsOverlay(
                 group = group,
                 chats = uiState.chats,
@@ -312,10 +315,20 @@ private fun SceneChatsOverlay(
     onChatClick: (Chat) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // The backend lists chats oldest-first, so reversing puts the newest first —
-    // matching how the group picks its "latest" chat.
-    val sceneChats = remember(chats, group.sceneId) {
-        chats.filter { it.sceneId == group.sceneId }.asReversed()
+    // The backend lists chats oldest-first, so reversing puts the newest first.
+    // Once per-chat message dates resolve, they take over: most recent last
+    // message first, and chats without any dated message keep the
+    // newest-created-first order at the bottom.
+    val sceneChats = remember(chats, group.sceneId, group.latestMessageDateByChat) {
+        val newestCreatedFirst = chats.filter { it.sceneId == group.sceneId }.asReversed()
+        if (group.latestMessageDateByChat.isEmpty()) {
+            newestCreatedFirst
+        } else {
+            newestCreatedFirst.sortedWith(
+                compareByDescending<Chat> { group.latestMessageDateByChat.containsKey(it.id) }
+                    .thenByDescending { group.latestMessageDateByChat[it.id] }
+            )
+        }
     }
     val overlayTitle = group.sceneName ?: group.latestChat.title
     Column(modifier = modifier.fillMaxSize().background(BlueVoid)) {

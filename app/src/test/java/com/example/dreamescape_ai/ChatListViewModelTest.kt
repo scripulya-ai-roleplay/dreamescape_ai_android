@@ -272,9 +272,18 @@ class ChatListViewModelTest {
         viewModel.loadChats()
         advanceUntilIdle()
 
+        val groups = viewModel.uiState.value.groups
         assertEquals(
             listOf(testSceneId, otherSceneId),
-            viewModel.uiState.value.groups.map { it.sceneId }
+            groups.map { it.sceneId }
+        )
+        assertEquals(
+            OffsetDateTime.parse("2026-11-04T12:00:00Z"),
+            groups[0].latestMessageDateByChat[oldSceneChat.id]
+        )
+        assertEquals(
+            OffsetDateTime.parse("2026-11-01T12:00:00Z"),
+            groups[1].latestMessageDateByChat[newSceneChat.id]
         )
     }
 

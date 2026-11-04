@@ -40,8 +40,9 @@ data class ChatListUiState(
  * scene_id (ON DELETE SET NULL) and keeps the chat readable. Such chats form
  * their own "scene-less" group keyed by [listKey].
  *
- * [sceneName], [sceneImageUrl] and [latestMessagePreview] are resolved
- * asynchronously after the groups are built and filled in as each lookup lands.
+ * [sceneName], [sceneImageUrl], [latestMessagePreview], [latestMessageDate] and
+ * [latestMessageDateByChat] are resolved asynchronously after the groups are
+ * built and filled in as each lookup lands.
  */
 data class ChatGroup(
     val sceneId: UUID?,
@@ -51,7 +52,9 @@ data class ChatGroup(
     val sceneName: String? = null,
     val sceneImageUrl: String? = null,
     val latestMessagePreview: String? = null,
-    val latestMessageDate: OffsetDateTime? = null
+    val latestMessageDate: OffsetDateTime? = null,
+    /** Latest message date per chat — the per-scene list sorts its rows by this. */
+    val latestMessageDateByChat: Map<UUID, OffsetDateTime> = emptyMap()
 ) {
     /** Stable LazyColumn key: scene id, or a sentinel for the scene-less group. */
     val listKey: String get() = sceneId?.toString() ?: "no-scene"
@@ -167,25 +170,32 @@ class ChatListViewModel(
             runCatching { sceneImageCall(sceneId).result.firstOrNull()?.url }.getOrNull()
         }
 
-        val latest = if (group.chatIds.isEmpty()) {
-            null
+        val messages = if (group.chatIds.isEmpty()) {
+            emptyList()
         } else {
             runCatching {
                 fetchAllPages { offset, limit ->
                     latestMessageCall(group.chatIds, offset, limit).result
                         .let { ListingPage(it.items, it.count) }
                 }
-                    .sortedWith(compareBy(nullsLast<OffsetDateTime>()) { it.dateCreated })
-                    .lastOrNull()
-            }.getOrNull()
+            }.getOrDefault(emptyList())
         }
+
+        val latest = messages
+            .sortedWith(compareBy(nullsLast<OffsetDateTime>()) { it.dateCreated })
+            .lastOrNull()
+        val latestDateByChat = messages
+            .filter { it.dateCreated != null }
+            .groupBy { it.chatId }
+            .mapValues { (_, chatMessages) -> chatMessages.maxOf { it.dateCreated!! } }
 
         updateGroup(group.sceneId) {
             it.copy(
                 sceneName = sceneName,
                 sceneImageUrl = imageUrl,
                 latestMessagePreview = latest?.let { msg -> truncateForPreview(extractModelMessageText(msg.message)) },
-                latestMessageDate = latest?.dateCreated
+                latestMessageDate = latest?.dateCreated,
+                latestMessageDateByChat = latestDateByChat
             )
         }
     }
