@@ -34,6 +34,11 @@ android {
     buildFeatures {
         compose = true
     }
+    testOptions {
+        // android.util.Log is stubbed to throw in the mockable android.jar; let it
+        // no-op so ViewModels can log failures without crashing host-side tests.
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {

@@ -3,6 +3,7 @@ package com.example.dreamescape_ai
 import android.os.Bundle
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -80,6 +81,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.example.dreamescape_ai.data.ChatModelStore
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.dreamescape_ai.ui.theme.Dreamescape_aiTheme
 import com.mikepenz.markdown.compose.components.MarkdownComponent
 import com.mikepenz.markdown.compose.components.markdownComponents
@@ -199,7 +201,18 @@ fun ChatScreen(
         val backgroundImageUrl = uiState.sceneImageUrl
         if (backgroundImageUrl != null) {
             AsyncImage(
-                model = backgroundImageUrl,
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(backgroundImageUrl)
+                    // MinIO presigned URLs carry a per-request signature in the query
+                    // string, so the full URL never hits Coil's caches and a private
+                    // background re-downloads on every open; the object path is a
+                    // stable identity (new uploads get new object keys).
+                    .memoryCacheKey(backgroundImageUrl.substringBefore('?'))
+                    .diskCacheKey(backgroundImageUrl.substringBefore('?'))
+                    .build(),
+                onError = {
+                    Log.e("ChatBackground", "Failed to load $backgroundImageUrl", it.result.throwable)
+                },
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()

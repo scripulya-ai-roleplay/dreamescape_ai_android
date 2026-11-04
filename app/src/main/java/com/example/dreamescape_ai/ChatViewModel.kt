@@ -1,5 +1,6 @@
 package com.example.dreamescape_ai
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CoroutineDispatcher
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import okhttp3.Call
 import okhttp3.Request
@@ -156,15 +158,19 @@ class ChatViewModel(
 
         viewModelScope.launch(ioDispatcher) {
             try {
-                _uiState.value = _uiState.value.copy(
-                    messages = fetchAllMessages().sortedChronologically(),
-                    isLoading = false
-                )
+                // The fetch must not be a copy() argument: the receiver is read
+                // before the network call runs, so the write would be based on a
+                // stale state and clobber concurrent updates (e.g. loadChat's
+                // sceneImageUrl) whenever the fetch is slow.
+                val messages = fetchAllMessages().sortedChronologically()
+                _uiState.update { it.copy(messages = messages, isLoading = false) }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    errorMessage = e.message ?: "Failed to load messages"
-                )
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = e.message ?: "Failed to load messages"
+                    )
+                }
             }
         }
     }
@@ -198,22 +204,15 @@ class ChatViewModel(
         viewModelScope.launch(ioDispatcher) {
             val chat = try {
                 getChatCall(chatId).result
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to load chat $chatId; background left unresolved", e)
                 _uiState.value = _uiState.value.copy(sceneImageResolved = true)
                 return@launch
             }
             // A null sceneId means the scene was deleted; the chat is read-only
             // and has no background or greetings to resolve.
             val sceneId = chat.sceneId
-            val imageUrl = if (sceneId == null) {
-                null
-            } else {
-                try {
-                    sceneImageCall(sceneId).result.firstOrNull()?.url
-                } catch (_: Exception) {
-                    null
-                }
-            }
+            val imageUrl = sceneId?.let { fetchSceneImageUrl(it) }
             val needsGreeting = chat.initialMessageId == null && sceneId != null
             val greetings = if (needsGreeting) {
                 try {
@@ -241,6 +240,26 @@ class ChatViewModel(
                 personaName = personaName
             )
         }
+    }
+
+    /**
+     * The scene's preview image URL, with retries: the MinIO link is the flakiest
+     * hop on a phone, and one failed fetch would otherwise leave the chat without
+     * a background until the next visit.
+     */
+    private suspend fun fetchSceneImageUrl(sceneId: UUID): String? {
+        var backoffMs = IMAGE_FETCH_INITIAL_BACKOFF_MS
+        repeat(IMAGE_FETCH_ATTEMPTS) { attempt ->
+            try {
+                val assets = sceneImageCall(sceneId).result
+                return assets.firstOrNull()?.url
+            } catch (e: Exception) {
+                Log.w(TAG, "Scene image fetch failed (attempt ${attempt + 1}/$IMAGE_FETCH_ATTEMPTS)", e)
+                if (attempt + 1 < IMAGE_FETCH_ATTEMPTS) delay(backoffMs)
+                backoffMs *= 2
+            }
+        }
+        return null
     }
 
     /** Cycles the greeting carousel to the previous opening message (clamped). */
@@ -356,10 +375,8 @@ class ChatViewModel(
         viewModelScope.launch(ioDispatcher) {
             try {
                 updateMessageCall(messageId, text)
-                _uiState.value = _uiState.value.copy(
-                    messages = fetchAllMessages().sortedChronologically(),
-                    errorMessage = null
-                )
+                val messages = fetchAllMessages().sortedChronologically()
+                _uiState.update { it.copy(messages = messages, errorMessage = null) }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     errorMessage = e.message ?: "Failed to edit message"
@@ -373,10 +390,8 @@ class ChatViewModel(
         viewModelScope.launch(ioDispatcher) {
             try {
                 deleteMessageCall(messageId)
-                _uiState.value = _uiState.value.copy(
-                    messages = fetchAllMessages().sortedChronologically(),
-                    errorMessage = null
-                )
+                val messages = fetchAllMessages().sortedChronologically()
+                _uiState.update { it.copy(messages = messages, errorMessage = null) }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     errorMessage = e.message ?: "Failed to delete message"
@@ -663,11 +678,10 @@ class ChatViewModel(
                 // Swap the streaming bubble for the authoritative message in the same
                 // update so the reply never flickers out between the two. On failure the
                 // streamed text is kept as the best available rendering of the reply.
-                _uiState.value = _uiState.value.copy(
-                    messages = fetchAllMessages().sortedChronologically(),
-                    streamingText = "",
-                    streamingThinking = ""
-                )
+                val messages = fetchAllMessages().sortedChronologically()
+                _uiState.update {
+                    it.copy(messages = messages, streamingText = "", streamingThinking = "")
+                }
             } catch (_: Exception) {
                 // Best-effort refresh; the user can reopen the chat to retry.
             }
@@ -675,10 +689,13 @@ class ChatViewModel(
     }
 
     private companion object {
+        const val TAG = "ChatViewModel"
         const val THINKING_TICK_MS = 1000L
         const val WORD_REVEAL_MS = 100L
         // The user message posted by the Continue quick-action to prompt another reply.
         const val CONTINUE_PROMPT = "Continue"
+        const val IMAGE_FETCH_ATTEMPTS = 3
+        const val IMAGE_FETCH_INITIAL_BACKOFF_MS = 1000L
     }
 }
 

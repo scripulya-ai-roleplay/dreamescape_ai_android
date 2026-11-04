@@ -127,6 +127,12 @@ class DreamescapeApplication : Application() {
                         .addInterceptor(MinioHostInterceptor { MINIO_BASE_URL })
                         .build()
                 }
+                // MinIO sends no Cache-Control, so default header-respecting would
+                // revalidate (and re-download) on every open — and fail the image
+                // outright when the MinIO link hiccups. Media URLs are
+                // content-unique (fresh object key per upload), so cached entries
+                // can be served without revalidation.
+                .respectCacheHeaders(false)
                 .build()
         )
     }
