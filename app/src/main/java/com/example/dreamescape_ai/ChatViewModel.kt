@@ -56,6 +56,7 @@ data class ChatUiState(
     val errorMessage: String? = null,
     val sceneImageUrl: String? = null,
     val sceneImageResolved: Boolean = false,
+    val renderPhase: ChatRenderPhase = ChatRenderPhase.IDLE,
     // The chat persona's name, resolved from its user_character_id; null when
     // the chat has no persona. Drives {{user}} rendering in messages.
     val personaName: String? = null,
@@ -149,22 +150,42 @@ class ChatViewModel(
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
+    // All render-facts mutations (context load, message reloads, edits) go
+    // through this pipeline: the facts change under its lock and the UI state
+    // is re-derived whole in the same critical section, so a slow load can
+    // never overwrite fields a faster one already resolved.
+    private val renderPipeline = ChatRenderPipeline { facts, decision ->
+        _uiState.update {
+            it.copy(
+                messages = facts.messages,
+                sceneImageUrl = decision.backgroundImageUrl,
+                sceneImageResolved = facts.contextLoaded,
+                renderPhase = facts.phase,
+                personaName = facts.personaName,
+                initialMessageId = facts.initialMessageId,
+                needsInitialMessage = decision.needsInitialMessage,
+                sceneInitialMessages = facts.sceneInitialMessages,
+                // A fresh authoritative message list supersedes any streamed draft.
+                streamingText = "",
+                streamingThinking = ""
+            )
+        }
+    }
+
     fun onInputChanged(text: String) {
         _uiState.value = _uiState.value.copy(input = text, errorMessage = null)
     }
 
     fun loadMessages() {
-        _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
         viewModelScope.launch(ioDispatcher) {
             try {
-                // The fetch must not be a copy() argument: the receiver is read
-                // before the network call runs, so the write would be based on a
-                // stale state and clobber concurrent updates (e.g. loadChat's
-                // sceneImageUrl) whenever the fetch is slow.
                 val messages = fetchAllMessages().sortedChronologically()
-                _uiState.update { it.copy(messages = messages, isLoading = false) }
+                renderPipeline.update { it.copy(messages = messages, messagesLoaded = true) }
+                _uiState.update { it.copy(isLoading = false) }
             } catch (e: Exception) {
+                renderPipeline.update { it.copy(messagesLoaded = true) }
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -200,13 +221,13 @@ class ChatViewModel(
      * gate open rather than blocking the screen.
      */
     fun loadChat() {
-        if (_uiState.value.sceneImageResolved) return
+        if (renderPipeline.currentFacts.contextLoaded) return
         viewModelScope.launch(ioDispatcher) {
             val chat = try {
                 getChatCall(chatId).result
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to load chat $chatId; background left unresolved", e)
-                _uiState.value = _uiState.value.copy(sceneImageResolved = true)
+                renderPipeline.update { it.copy(contextLoaded = true) }
                 return@launch
             }
             // A null sceneId means the scene was deleted; the chat is read-only
@@ -230,15 +251,16 @@ class ChatViewModel(
                     null
                 }
             }
-            _uiState.value = _uiState.value.copy(
-                sceneImageUrl = imageUrl,
-                sceneImageResolved = true,
-                initialMessageId = chat.initialMessageId,
-                needsInitialMessage = needsGreeting,
-                sceneInitialMessages = greetings,
-                currentInitialMessageIndex = 0,
-                personaName = personaName
-            )
+            renderPipeline.update {
+                it.copy(
+                    contextLoaded = true,
+                    hasScene = sceneId != null,
+                    sceneImageUrl = imageUrl,
+                    initialMessageId = chat.initialMessageId,
+                    sceneInitialMessages = greetings,
+                    personaName = personaName
+                )
+            }
         }
     }
 
@@ -316,22 +338,23 @@ class ChatViewModel(
                 // backend rejects messages until one is picked (choosing is
                 // once-per-chat). The greeting currently shown in the carousel is
                 // committed, then this reply follows it.
+                var greetingCommitted = false
                 if (_uiState.value.needsInitialMessage) {
                     val greetingId = _uiState.value.sceneInitialMessages
                         .getOrNull(_uiState.value.currentInitialMessageIndex)?.id
                     if (greetingId == null) {
-                        _uiState.value = _uiState.value.copy(
-                            isSending = false,
-                            errorMessage = "No opening message available for this scene"
-                        )
+                        _uiState.update {
+                            it.copy(
+                                isSending = false,
+                                errorMessage = "No opening message available for this scene"
+                            )
+                        }
                         return@launch
                     }
-                    _uiState.value = _uiState.value.copy(isChoosingInitialMessage = true)
+                    _uiState.update { it.copy(isChoosingInitialMessage = true) }
                     chooseInitialMessageCall(chatId, greetingId)
-                    // needsInitialMessage stays true until the seeded greeting is
-                    // reloaded below, so the carousel doesn't drop out (or duplicate
-                    // the greeting) during the in-flight send.
-                    _uiState.value = _uiState.value.copy(isChoosingInitialMessage = false)
+                    greetingCommitted = true
+                    _uiState.update { it.copy(isChoosingInitialMessage = false) }
                 }
 
                 val dto = SendMessageRequest(
@@ -342,12 +365,16 @@ class ChatViewModel(
                 sendMessageCall(dto)
                 // Reload so the user message (and any pending model message) is shown.
                 val messages = fetchAllMessages().sortedChronologically()
-                // The seeded greeting now appears in the list; clear the carousel.
-                _uiState.value = _uiState.value.copy(
-                    messages = messages,
-                    isSending = false,
-                    needsInitialMessage = false
-                )
+                // The commitment is recorded here rather than right after choosing
+                // so the carousel doesn't drop out (or duplicate the greeting)
+                // during the in-flight send.
+                renderPipeline.update {
+                    it.copy(
+                        messages = messages,
+                        greetingCommitted = it.greetingCommitted || greetingCommitted
+                    )
+                }
+                _uiState.update { it.copy(isSending = false) }
 
                 // Wait for the model's reply: shows a "thinking" timer (so the user can
                 // see the app is generating, not silently stuck) and reloads when the
@@ -376,7 +403,8 @@ class ChatViewModel(
             try {
                 updateMessageCall(messageId, text)
                 val messages = fetchAllMessages().sortedChronologically()
-                _uiState.update { it.copy(messages = messages, errorMessage = null) }
+                renderPipeline.update { it.copy(messages = messages) }
+                _uiState.update { it.copy(errorMessage = null) }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     errorMessage = e.message ?: "Failed to edit message"
@@ -391,7 +419,8 @@ class ChatViewModel(
             try {
                 deleteMessageCall(messageId)
                 val messages = fetchAllMessages().sortedChronologically()
-                _uiState.update { it.copy(messages = messages, errorMessage = null) }
+                renderPipeline.update { it.copy(messages = messages) }
+                _uiState.update { it.copy(errorMessage = null) }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     errorMessage = e.message ?: "Failed to delete message"
@@ -675,13 +704,8 @@ class ChatViewModel(
     private fun reloadAfterReply() {
         viewModelScope.launch(ioDispatcher) {
             try {
-                // Swap the streaming bubble for the authoritative message in the same
-                // update so the reply never flickers out between the two. On failure the
-                // streamed text is kept as the best available rendering of the reply.
                 val messages = fetchAllMessages().sortedChronologically()
-                _uiState.update {
-                    it.copy(messages = messages, streamingText = "", streamingThinking = "")
-                }
+                renderPipeline.update { it.copy(messages = messages) }
             } catch (_: Exception) {
                 // Best-effort refresh; the user can reopen the chat to retry.
             }
