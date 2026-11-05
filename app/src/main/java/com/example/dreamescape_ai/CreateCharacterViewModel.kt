@@ -10,8 +10,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.openapitools.client.apis.CharactersApi
+import org.openapitools.client.apis.MediaApi
 import org.openapitools.client.models.ApiResponseCharacter
+import org.openapitools.client.models.ApiResponseListMediaAssetDTO
 import org.openapitools.client.models.Character
+import org.openapitools.client.models.MediaAssetDTO
+import org.openapitools.client.models.MediaEntityType
 import org.openapitools.client.models.ModelApiResponse
 import java.io.IOException
 import java.util.UUID
@@ -20,6 +24,8 @@ data class CreateCharacterUiState(
     val name: String = "",
     val systemPrompt: String = "",
     val isPublic: Boolean = false,
+    /** Images already attached to the character, shown before newly picked ones. */
+    val existingMedia: List<MediaAssetDTO> = emptyList(),
     val imageUris: List<String> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
@@ -40,6 +46,14 @@ class CreateCharacterViewModel(
     },
     private val getCharacterCall: (UUID) -> ApiResponseCharacter = { id ->
         CharactersApi().getCharacterDetailsApiV1CharactersCharacterIdGet(characterId = id)
+    },
+    private val listMediaCall: (UUID) -> ApiResponseListMediaAssetDTO = { id ->
+        MediaApi().getMediaForEntityApiV1MediaEntityEntityTypeEntityIdGet(
+            entityType = MediaEntityType.character, entityId = id
+        )
+    },
+    private val deleteMediaCall: (UUID) -> ModelApiResponse = { id ->
+        MediaApi().deleteMediaApiV1MediaMediaIdDelete(id)
     },
     private val uploadImage: (entityId: UUID, uri: String, isPublic: Boolean) -> Unit = { _, _, _ -> },
     private val findCreatedId: (name: String) -> UUID? = { name ->
@@ -64,10 +78,13 @@ class CreateCharacterViewModel(
         viewModelScope.launch(ioDispatcher) {
             try {
                 val character = getCharacterCall(id).result
+                // A media fetch hiccup shouldn't block editing the text fields.
+                val media = runCatching { listMediaCall(id).result }.getOrDefault(emptyList())
                 _uiState.value = _uiState.value.copy(
                     name = character.name,
                     systemPrompt = character.systemPrompt,
                     isPublic = character.isPublic ?: false,
+                    existingMedia = media,
                     isPrefilling = false
                 )
             } catch (e: Exception) {
@@ -84,6 +101,7 @@ class CreateCharacterViewModel(
     private var entityCreated: Boolean = false
     private var createdEntityId: UUID? = null
     private val uploadedUris: MutableSet<String> = mutableSetOf()
+    private val removedMediaIds: MutableList<UUID> = mutableListOf()
 
     fun onNameChanged(name: String) {
         _uiState.value = _uiState.value.copy(name = name, errorMessage = null)
@@ -105,11 +123,24 @@ class CreateCharacterViewModel(
     }
 
     fun onImageRemoved(index: Int) {
-        val current = _uiState.value.imageUris.toMutableList()
-        if (index !in current.indices) return
-        val removed = current.removeAt(index)
+        val state = _uiState.value
+        val remoteCount = state.existingMedia.size
+        if (index in 0 until remoteCount) {
+            // Server-side images are deleted only on save, so backing out of
+            // the editor without saving leaves the gallery untouched.
+            removedMediaIds.add(state.existingMedia[index].id)
+            _uiState.value = state.copy(
+                existingMedia = state.existingMedia.toMutableList().apply { removeAt(index) },
+                errorMessage = null
+            )
+            return
+        }
+        val localIndex = index - remoteCount
+        val current = state.imageUris.toMutableList()
+        if (localIndex !in current.indices) return
+        val removed = current.removeAt(localIndex)
         uploadedUris.remove(removed)
-        _uiState.value = _uiState.value.copy(imageUris = current, errorMessage = null)
+        _uiState.value = state.copy(imageUris = current, errorMessage = null)
     }
 
     fun validate(): String? {
@@ -171,6 +202,12 @@ class CreateCharacterViewModel(
                         uploadImage(entityId, uri, state.isPublic)
                         uploadedUris.add(uri)
                     }
+                }
+
+                val pendingDeletes = removedMediaIds.iterator()
+                while (pendingDeletes.hasNext()) {
+                    deleteMediaCall(pendingDeletes.next())
+                    pendingDeletes.remove()
                 }
 
                 _uiState.value = _uiState.value.copy(isLoading = false, isSuccess = true)

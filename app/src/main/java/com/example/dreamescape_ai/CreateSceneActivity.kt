@@ -203,7 +203,7 @@ fun CreateSceneScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         ImagePickerSection(
-            imageUris = uiState.imageUris,
+            imageUris = uiState.existingMedia.map { it.url } + uiState.imageUris,
             onAddImages = viewModel::onImagesAdded,
             onRemoveImage = viewModel::onImageRemoved
         )

@@ -15,6 +15,12 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.openapitools.client.models.ApiResponseListInitialMessage
+import org.openapitools.client.models.ApiResponseListMediaAssetDTO
+import org.openapitools.client.models.ApiResponseScene
+import org.openapitools.client.models.InitialMessage
+import org.openapitools.client.models.MediaAssetDTO
+import org.openapitools.client.models.MediaEntityType
 import org.openapitools.client.models.ModelApiResponse
 import org.openapitools.client.models.Scene
 import java.util.UUID
@@ -308,5 +314,102 @@ class CreateSceneViewModelTest {
         advanceUntilIdle()
 
         assertNull(capturedScene?.description)
+    }
+
+    private fun mediaAsset(id: UUID = UUID.randomUUID(), url: String = "http://minio/img.png") =
+        MediaAssetDTO(
+            id = id,
+            url = url,
+            contentType = "image/png",
+            sizeBytes = 1,
+            entityType = MediaEntityType.scene,
+            entityId = UUID.randomUUID(),
+            isPublic = true
+        )
+
+    private fun editViewModel(
+        editId: UUID = UUID.randomUUID(),
+        media: List<MediaAssetDTO> = emptyList(),
+        onDeleteMedia: (UUID) -> Unit = {},
+        onUploadImage: (String) -> Unit = {}
+    ): CreateSceneViewModel {
+        return CreateSceneViewModel(
+            editId = editId,
+            updateSceneCall = { _, _ -> ModelApiResponse(result = "ok") },
+            getSceneCall = {
+                ApiResponseScene(
+                    result = Scene(
+                        ownerId = testOwnerId,
+                        title = "Dark Forest",
+                        backgroundPrompt = "You are in a dark forest"
+                    )
+                )
+            },
+            getSceneInitialMessagesCall = {
+                ApiResponseListInitialMessage(result = listOf(InitialMessage(text = "Welcome to the forest")))
+            },
+            listMediaCall = { ApiResponseListMediaAssetDTO(result = media) },
+            deleteMediaCall = { id -> onDeleteMedia(id); ModelApiResponse(result = "ok") },
+            uploadImage = { _, uri, _ -> onUploadImage(uri) },
+            ioDispatcher = testDispatcher,
+            ownerId = testOwnerId
+        )
+    }
+
+    @Test
+    fun `edit mode loads existing media`() = runTest {
+        val asset = mediaAsset()
+        val viewModel = editViewModel(media = listOf(asset))
+        advanceUntilIdle()
+
+        assertEquals(listOf(asset), viewModel.uiState.value.existingMedia)
+        assertEquals("Dark Forest", viewModel.uiState.value.title)
+    }
+
+    @Test
+    fun `removing an existing image deletes it only on save`() = runTest {
+        val asset = mediaAsset()
+        val deleted = mutableListOf<UUID>()
+        val viewModel = editViewModel(media = listOf(asset), onDeleteMedia = { deleted.add(it) })
+        advanceUntilIdle()
+
+        viewModel.onImageRemoved(0)
+
+        assertTrue(viewModel.uiState.value.existingMedia.isEmpty())
+        assertTrue(deleted.isEmpty())
+
+        viewModel.createScene()
+        advanceUntilIdle()
+
+        assertEquals(listOf(asset.id), deleted)
+        assertTrue(viewModel.uiState.value.isSuccess)
+    }
+
+    @Test
+    fun `update uploads only newly picked images`() = runTest {
+        val asset = mediaAsset(url = "http://minio/existing.png")
+        val uploaded = mutableListOf<String>()
+        val viewModel = editViewModel(media = listOf(asset), onUploadImage = { uploaded.add(it) })
+        advanceUntilIdle()
+
+        viewModel.onImagesAdded(listOf("content://new-pick"))
+        viewModel.createScene()
+        advanceUntilIdle()
+
+        assertEquals(listOf("content://new-pick"), uploaded)
+        assertTrue(viewModel.uiState.value.isSuccess)
+    }
+
+    @Test
+    fun `removal index after existing media removes the local pick`() = runTest {
+        val asset = mediaAsset()
+        val viewModel = editViewModel(media = listOf(asset))
+        advanceUntilIdle()
+
+        viewModel.onImagesAdded(listOf("content://new-pick"))
+        viewModel.onImageRemoved(1)
+
+        assertEquals(listOf(asset), viewModel.uiState.value.existingMedia)
+        assertTrue(viewModel.uiState.value.imageUris.isEmpty())
     }
 }

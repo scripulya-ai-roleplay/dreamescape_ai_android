@@ -9,10 +9,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.openapitools.client.apis.MediaApi
 import org.openapitools.client.apis.ScenesApi
 import org.openapitools.client.models.ApiResponseListInitialMessage
+import org.openapitools.client.models.ApiResponseListMediaAssetDTO
 import org.openapitools.client.models.ApiResponseScene
 import org.openapitools.client.models.InitialMessage
+import org.openapitools.client.models.MediaAssetDTO
+import org.openapitools.client.models.MediaEntityType
 import org.openapitools.client.models.ModelApiResponse
 import org.openapitools.client.models.Scene
 import java.io.IOException
@@ -24,6 +28,8 @@ data class CreateSceneUiState(
     val backgroundPrompt: String = "",
     // A scene offers one or more opening greetings; the form starts with one row.
     val initialMessages: List<String> = listOf(""),
+    /** Images already attached to the scene, shown before newly picked ones. */
+    val existingMedia: List<MediaAssetDTO> = emptyList(),
     val imageUris: List<String> = emptyList(),
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
@@ -47,6 +53,14 @@ class CreateSceneViewModel(
     },
     private val getSceneInitialMessagesCall: (UUID) -> ApiResponseListInitialMessage = { id ->
         ScenesApi().getSceneInitialMessagesApiV1ScenesSceneIdInitialMessagesGet(sceneId = id)
+    },
+    private val listMediaCall: (UUID) -> ApiResponseListMediaAssetDTO = { id ->
+        MediaApi().getMediaForEntityApiV1MediaEntityEntityTypeEntityIdGet(
+            entityType = MediaEntityType.scene, entityId = id
+        )
+    },
+    private val deleteMediaCall: (UUID) -> ModelApiResponse = { id ->
+        MediaApi().deleteMediaApiV1MediaMediaIdDelete(id)
     },
     private val uploadImage: (entityId: UUID, uri: String, isPublic: Boolean) -> Unit = { _, _, _ -> },
     private val findCreatedId: (title: String) -> UUID? = { title ->
@@ -75,11 +89,14 @@ class CreateSceneViewModel(
                     .getOrDefault(emptyList())
                     .map { it.text }
                     .ifEmpty { listOf("") }
+                // A media fetch hiccup shouldn't block editing the text fields.
+                val media = runCatching { listMediaCall(id).result }.getOrDefault(emptyList())
                 _uiState.value = _uiState.value.copy(
                     title = scene.title,
                     description = scene.description.orEmpty(),
                     backgroundPrompt = scene.backgroundPrompt,
                     initialMessages = greetings,
+                    existingMedia = media,
                     isPrefilling = false
                 )
             } catch (e: Exception) {
@@ -96,6 +113,7 @@ class CreateSceneViewModel(
     private var entityCreated: Boolean = false
     private var createdEntityId: UUID? = null
     private val uploadedUris: MutableSet<String> = mutableSetOf()
+    private val removedMediaIds: MutableList<UUID> = mutableListOf()
 
     fun onTitleChanged(title: String) {
         _uiState.value = _uiState.value.copy(title = title, errorMessage = null)
@@ -142,11 +160,24 @@ class CreateSceneViewModel(
     }
 
     fun onImageRemoved(index: Int) {
-        val current = _uiState.value.imageUris.toMutableList()
-        if (index !in current.indices) return
-        val removed = current.removeAt(index)
+        val state = _uiState.value
+        val remoteCount = state.existingMedia.size
+        if (index in 0 until remoteCount) {
+            // Server-side images are deleted only on save, so backing out of
+            // the editor without saving leaves the gallery untouched.
+            removedMediaIds.add(state.existingMedia[index].id)
+            _uiState.value = state.copy(
+                existingMedia = state.existingMedia.toMutableList().apply { removeAt(index) },
+                errorMessage = null
+            )
+            return
+        }
+        val localIndex = index - remoteCount
+        val current = state.imageUris.toMutableList()
+        if (localIndex !in current.indices) return
+        val removed = current.removeAt(localIndex)
         uploadedUris.remove(removed)
-        _uiState.value = _uiState.value.copy(imageUris = current, errorMessage = null)
+        _uiState.value = state.copy(imageUris = current, errorMessage = null)
     }
 
     fun validate(): String? {
@@ -214,6 +245,12 @@ class CreateSceneViewModel(
                         uploadImage(entityId, uri, true)
                         uploadedUris.add(uri)
                     }
+                }
+
+                val pendingDeletes = removedMediaIds.iterator()
+                while (pendingDeletes.hasNext()) {
+                    deleteMediaCall(pendingDeletes.next())
+                    pendingDeletes.remove()
                 }
 
                 _uiState.value = _uiState.value.copy(isLoading = false, isSuccess = true)

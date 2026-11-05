@@ -14,8 +14,13 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.openapitools.client.models.ApiResponseCharacter
+import org.openapitools.client.models.ApiResponseListMediaAssetDTO
 import org.openapitools.client.models.Character
+import org.openapitools.client.models.MediaAssetDTO
+import org.openapitools.client.models.MediaEntityType
 import org.openapitools.client.models.ModelApiResponse
+import java.util.UUID
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class CreateCharacterViewModelTest {
@@ -210,5 +215,92 @@ class CreateCharacterViewModelTest {
         assertEquals("Hero", capturedCharacter?.name)
         assertEquals("You are a brave hero", capturedCharacter?.systemPrompt)
         assertTrue(capturedCharacter?.isPublic == true)
+    }
+
+    private fun mediaAsset(id: UUID = UUID.randomUUID(), url: String = "http://minio/img.png") =
+        MediaAssetDTO(
+            id = id,
+            url = url,
+            contentType = "image/png",
+            sizeBytes = 1,
+            entityType = MediaEntityType.character,
+            entityId = UUID.randomUUID(),
+            isPublic = true
+        )
+
+    private fun editViewModel(
+        editId: UUID = UUID.randomUUID(),
+        media: List<MediaAssetDTO> = emptyList(),
+        onDeleteMedia: (UUID) -> Unit = {},
+        onUploadImage: (String) -> Unit = {}
+    ): CreateCharacterViewModel {
+        return CreateCharacterViewModel(
+            editId = editId,
+            updateCharacterCall = { _, _ -> ModelApiResponse(result = "ok") },
+            getCharacterCall = {
+                ApiResponseCharacter(result = Character(name = "Hero", systemPrompt = "You are a brave hero"))
+            },
+            listMediaCall = { ApiResponseListMediaAssetDTO(result = media) },
+            deleteMediaCall = { id -> onDeleteMedia(id); ModelApiResponse(result = "ok") },
+            uploadImage = { _, uri, _ -> onUploadImage(uri) },
+            ioDispatcher = testDispatcher
+        )
+    }
+
+    @Test
+    fun `edit mode loads existing media`() = runTest {
+        val asset = mediaAsset()
+        val viewModel = editViewModel(media = listOf(asset))
+        advanceUntilIdle()
+
+        assertEquals(listOf(asset), viewModel.uiState.value.existingMedia)
+        assertEquals("Hero", viewModel.uiState.value.name)
+    }
+
+    @Test
+    fun `removing an existing image deletes it only on save`() = runTest {
+        val asset = mediaAsset()
+        val deleted = mutableListOf<UUID>()
+        val viewModel = editViewModel(media = listOf(asset), onDeleteMedia = { deleted.add(it) })
+        advanceUntilIdle()
+
+        viewModel.onImageRemoved(0)
+
+        assertTrue(viewModel.uiState.value.existingMedia.isEmpty())
+        assertTrue(deleted.isEmpty())
+
+        viewModel.createCharacter()
+        advanceUntilIdle()
+
+        assertEquals(listOf(asset.id), deleted)
+        assertTrue(viewModel.uiState.value.isSuccess)
+    }
+
+    @Test
+    fun `update uploads only newly picked images`() = runTest {
+        val asset = mediaAsset(url = "http://minio/existing.png")
+        val uploaded = mutableListOf<String>()
+        val viewModel = editViewModel(media = listOf(asset), onUploadImage = { uploaded.add(it) })
+        advanceUntilIdle()
+
+        viewModel.onImagesAdded(listOf("content://new-pick"))
+        viewModel.createCharacter()
+        advanceUntilIdle()
+
+        assertEquals(listOf("content://new-pick"), uploaded)
+        assertTrue(viewModel.uiState.value.isSuccess)
+    }
+
+    @Test
+    fun `removal index after existing media removes the local pick`() = runTest {
+        val asset = mediaAsset()
+        val viewModel = editViewModel(media = listOf(asset))
+        advanceUntilIdle()
+
+        viewModel.onImagesAdded(listOf("content://new-pick"))
+        viewModel.onImageRemoved(1)
+
+        assertEquals(listOf(asset), viewModel.uiState.value.existingMedia)
+        assertTrue(viewModel.uiState.value.imageUris.isEmpty())
     }
 }
