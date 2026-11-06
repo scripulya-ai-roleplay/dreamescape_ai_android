@@ -19,6 +19,7 @@ import org.junit.runner.RunWith
 import org.openapitools.client.models.ApiResponseChatSettings
 import org.openapitools.client.models.ApiResponseListChatSummary
 import org.openapitools.client.models.ApiResponseListSummaryChapter
+import org.openapitools.client.models.ApiResponseSummarizationStatusDTO
 import org.openapitools.client.models.ChatSummary
 import org.openapitools.client.models.ControlBehavior
 import org.openapitools.client.models.CreateSummariesDTO
@@ -28,6 +29,7 @@ import org.openapitools.client.models.Perspective
 import org.openapitools.client.models.Preset
 import org.openapitools.client.models.ReasoningEffort
 import org.openapitools.client.models.ResponseLength
+import org.openapitools.client.models.SummarizationStatusDTO
 import org.openapitools.client.models.SummaryChapter
 import org.openapitools.client.models.TemperatureSettings
 import org.openapitools.client.models.TokenLimit
@@ -84,9 +86,24 @@ class ChatSettingsViewModelTest {
         Dispatchers.resetMain()
     }
 
+    private val idleStatus = SummarizationStatusDTO(
+        chatId = testChatId,
+        queued = 0,
+        pending = 0,
+        completed = 1,
+        failed = 0,
+        activeSummaryId = null,
+        chapters = emptyList(),
+        originalContextTokens = 5000,
+        currentContextTokens = 1200,
+        estimated = true
+    )
+
     private fun createViewModel(
         chapters: List<SummaryChapter> = listOf(chapter1, chapter2),
         chaptersFail: Boolean = false,
+        onGetStatus: () -> SummarizationStatusDTO = { idleStatus },
+        onListChapters: () -> Unit = {},
         onCreateSummaries: (CreateSummariesDTO) -> ApiResponseListChatSummary = { dto ->
             ApiResponseListChatSummary(
                 result = dto.chapters.map { range ->
@@ -112,10 +129,12 @@ class ChatSettingsViewModelTest {
             upsertSettingsCall = { _, _ -> ApiResponseChatSettings(result = settings) },
             getContextUsageCall = { throw RuntimeException("no usage in tests") },
             listChaptersCall = {
+                onListChapters()
                 if (chaptersFail) throw RuntimeException("chapters unavailable")
                 ApiResponseListSummaryChapter(result = chapters)
             },
             createSummariesCall = onCreateSummaries,
+            getStatusCall = { ApiResponseSummarizationStatusDTO(result = onGetStatus()) },
             ioDispatcher = testDispatcher
         )
     }
@@ -199,5 +218,58 @@ class ChatSettingsViewModelTest {
 
         assertEquals("backend down", viewModel.uiState.value.errorMessage)
         assertEquals(false, viewModel.uiState.value.isSummarizing)
+    }
+
+    @Test
+    fun `summarization status loads on init with the context token comparison`() = runTest {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val status = viewModel.uiState.value.summarizationStatus
+        assertNotNull(status)
+        assertEquals(5000, status!!.originalContextTokens)
+        assertEquals(1200, status.currentContextTokens)
+    }
+
+    @Test
+    fun `summarization status stays null when the status call fails`() = runTest {
+        val viewModel = createViewModel(onGetStatus = { throw RuntimeException("status down") })
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.summarizationStatus)
+    }
+
+    @Test
+    fun `status polling runs while tasks are in progress and reloads chapters when done`() = runTest {
+        var statusCalls = 0
+        var chaptersLoads = 0
+        val inProgress = idleStatus.copy(queued = 1, pending = 1)
+        val viewModel = createViewModel(
+            onGetStatus = {
+                statusCalls++
+                if (statusCalls == 1) inProgress else idleStatus
+            },
+            onListChapters = { chaptersLoads++ }
+        )
+        advanceUntilIdle()
+
+        val status = viewModel.uiState.value.summarizationStatus
+        assertNotNull(status)
+        assertEquals(0, status!!.queued + status.pending)
+        // one load on init, one more after the polling loop saw the batch finish
+        assertEquals(2, chaptersLoads)
+    }
+
+    @Test
+    fun `summarize refreshes the summarization status after queueing`() = runTest {
+        var statusCalls = 0
+        val viewModel = createViewModel(onGetStatus = { statusCalls++; idleStatus })
+        advanceUntilIdle()
+        val callsAfterInit = statusCalls
+
+        viewModel.summarize(LLMModelType.qwenMinusMax)
+        advanceUntilIdle()
+
+        assertEquals(callsAfterInit + 1, statusCalls)
     }
 }

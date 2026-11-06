@@ -23,6 +23,7 @@ import org.openapitools.client.models.ApiResponseChatSummary
 import org.openapitools.client.models.ApiResponseListChatSummary
 import org.openapitools.client.models.ApiResponseListSummaryChapter
 import org.openapitools.client.models.ApiResponsePageChatSummary
+import org.openapitools.client.models.ApiResponseSummarizationStatusDTO
 import org.openapitools.client.models.CreateSummariesDTO
 import org.openapitools.client.models.HTTPValidationError
 import org.openapitools.client.models.UpdateSummaryDTO
@@ -116,6 +117,80 @@ class SummarizationApi(basePath: kotlin.String = defaultBasePath, client: OkHttp
         return RequestConfig(
             method = RequestMethod.POST,
             path = "/api/v1/summarization/",
+            query = localVariableQuery,
+            headers = localVariableHeaders,
+            requiresAuthentication = true,
+            body = localVariableBody
+        )
+    }
+
+    /**
+     * Get Summarization Status
+     * 
+     * @param chatId 
+     * @return ApiResponseSummarizationStatusDTO
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class, UnsupportedOperationException::class, ClientException::class, ServerException::class)
+    fun getSummarizationStatusApiV1SummarizationStatusGet(chatId: java.util.UUID) : ApiResponseSummarizationStatusDTO {
+        val localVarResponse = getSummarizationStatusApiV1SummarizationStatusGetWithHttpInfo(chatId = chatId)
+
+        return when (localVarResponse.responseType) {
+            ResponseType.Success -> (localVarResponse as Success<*>).data as ApiResponseSummarizationStatusDTO
+            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
+            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
+            ResponseType.ClientError -> {
+                val localVarError = localVarResponse as ClientError<*>
+                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
+            }
+            ResponseType.ServerError -> {
+                val localVarError = localVarResponse as ServerError<*>
+                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()} ${localVarError.body}", localVarError.statusCode, localVarResponse)
+            }
+        }
+    }
+
+    /**
+     * Get Summarization Status
+     * 
+     * @param chatId 
+     * @return ApiResponse<ApiResponseSummarizationStatusDTO?>
+     * @throws IllegalStateException If the request is not correctly configured
+     * @throws IOException Rethrows the OkHttp execute method exception
+     */
+    @Suppress("UNCHECKED_CAST")
+    @Throws(IllegalStateException::class, IOException::class)
+    fun getSummarizationStatusApiV1SummarizationStatusGetWithHttpInfo(chatId: java.util.UUID) : ApiResponse<ApiResponseSummarizationStatusDTO?> {
+        val localVariableConfig = getSummarizationStatusApiV1SummarizationStatusGetRequestConfig(chatId = chatId)
+
+        return request<Unit, ApiResponseSummarizationStatusDTO>(
+            localVariableConfig
+        )
+    }
+
+    /**
+     * To obtain the request config of the operation getSummarizationStatusApiV1SummarizationStatusGet
+     *
+     * @param chatId 
+     * @return RequestConfig
+     */
+    fun getSummarizationStatusApiV1SummarizationStatusGetRequestConfig(chatId: java.util.UUID) : RequestConfig<Unit> {
+        val localVariableBody = null
+        val localVariableQuery: MultiValueMap = mutableMapOf<kotlin.String, kotlin.collections.List<kotlin.String>>()
+            .apply {
+                put("chat_id", listOf(chatId.toString()))
+            }
+        val localVariableHeaders: MutableMap<String, String> = mutableMapOf()
+        localVariableHeaders["Accept"] = "application/json"
+
+        return RequestConfig(
+            method = RequestMethod.GET,
+            path = "/api/v1/summarization/status",
             query = localVariableQuery,
             headers = localVariableHeaders,
             requiresAuthentication = true,

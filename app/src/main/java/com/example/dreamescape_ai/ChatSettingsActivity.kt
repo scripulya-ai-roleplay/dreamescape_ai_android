@@ -74,6 +74,7 @@ import org.openapitools.client.models.Perspective
 import org.openapitools.client.models.Preset
 import org.openapitools.client.models.ReasoningEffort
 import org.openapitools.client.models.ResponseLength
+import org.openapitools.client.models.SummarizationStatusDTO
 import org.openapitools.client.models.SummaryChapter
 import org.openapitools.client.models.TokenLimit
 import org.openapitools.client.models.Toggle
@@ -308,6 +309,7 @@ fun ChatSettingsScreen(
 
         SummarizationSection(
             chapters = uiState.chapters,
+            status = uiState.summarizationStatus,
             isSummarizing = uiState.isSummarizing,
             queuedCount = uiState.summarizeQueuedCount,
             onSummarizeClick = { showSummarizeModelPicker = true }
@@ -402,6 +404,7 @@ private fun <T> EnumButtonGroup(
 @Composable
 private fun SummarizationSection(
     chapters: List<SummaryChapter>?,
+    status: SummarizationStatusDTO?,
     isSummarizing: Boolean,
     queuedCount: Int,
     onSummarizeClick: () -> Unit,
@@ -417,6 +420,9 @@ private fun SummarizationSection(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text("Summarization", style = MaterialTheme.typography.titleSmall)
+            if (status != null) {
+                SummarizationStatusBlock(status)
+            }
             if (chapters.isEmpty()) {
                 Text(
                     "Nothing to summarize yet.",
@@ -468,6 +474,39 @@ private fun SummarizationSection(
                     color = MaterialTheme.colorScheme.primary
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun SummarizationStatusBlock(status: SummarizationStatusDTO) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        val inProgress = status.queued + status.pending
+        if (inProgress > 0) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            Text(
+                "Summarizing: ${status.pending} running, ${status.queued} in queue",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        if (status.failed > 0) {
+            Text(
+                "${status.failed} summarization task(s) failed.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+        if (status.originalContextTokens > 0) {
+            val prefix = if (status.estimated) "~" else ""
+            val saved = status.originalContextTokens - status.currentContextTokens
+            val percent = saved * 100 / status.originalContextTokens
+            Text(
+                "Context: $prefix${status.currentContextTokens.decimalFormat()} tok with summaries, " +
+                    "$prefix${status.originalContextTokens.decimalFormat()} tok without ($percent% saved)",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

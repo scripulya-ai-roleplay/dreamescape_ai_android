@@ -7,6 +7,8 @@ import com.example.dreamescape_ai.data.ChatModelStore
 import com.example.dreamescape_ai.data.supportsReasoning
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,6 +21,7 @@ import org.openapitools.client.models.ApiResponseChatSettings
 import org.openapitools.client.models.ApiResponseContextUsage
 import org.openapitools.client.models.ApiResponseListChatSummary
 import org.openapitools.client.models.ApiResponseListSummaryChapter
+import org.openapitools.client.models.ApiResponseSummarizationStatusDTO
 import org.openapitools.client.models.ChapterRange
 import org.openapitools.client.models.ChatSettings
 import org.openapitools.client.models.ContextUsage
@@ -30,6 +33,7 @@ import org.openapitools.client.models.Perspective
 import org.openapitools.client.models.Preset
 import org.openapitools.client.models.ReasoningEffort
 import org.openapitools.client.models.ResponseLength
+import org.openapitools.client.models.SummarizationStatusDTO
 import org.openapitools.client.models.SummaryChapter
 import org.openapitools.client.models.TemperatureSettings
 import org.openapitools.client.models.TokenLimit
@@ -42,6 +46,7 @@ data class ChatSettingsUiState(
     val selectedModel: LLMModelType = ChatModelStore.DEFAULT_MODEL,
     val contextUsage: ContextUsage? = null,
     val chapters: List<SummaryChapter>? = null,
+    val summarizationStatus: SummarizationStatusDTO? = null,
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val isSummarizing: Boolean = false,
@@ -68,17 +73,23 @@ class ChatSettingsViewModel(
     private val createSummariesCall: (CreateSummariesDTO) -> ApiResponseListChatSummary = { dto ->
         SummarizationApi().createSummariesApiV1SummarizationPost(dto)
     },
+    private val getStatusCall: (UUID) -> ApiResponseSummarizationStatusDTO = { id ->
+        SummarizationApi().getSummarizationStatusApiV1SummarizationStatusGet(id)
+    },
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatSettingsUiState(isLoading = true))
     val uiState: StateFlow<ChatSettingsUiState> = _uiState.asStateFlow()
 
+    private var statusPollingJob: Job? = null
+
     init {
         loadSettings()
         loadSelectedModel()
         loadContextUsage()
         loadChapters()
+        loadSummarizationStatus()
     }
 
     fun loadSettings() {
@@ -140,6 +151,45 @@ class ChatSettingsViewModel(
         }
     }
 
+    /**
+     * Fetches summarization progress (queued/pending/completed/failed) and the
+     * original-vs-current context token comparison. Non-fatal, same as
+     * [loadChapters]: the status block just stays hidden when the call fails.
+     */
+    fun loadSummarizationStatus() {
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                val status = getStatusCall(chatId).result
+                _uiState.value = _uiState.value.copy(summarizationStatus = status)
+                if (status != null && status.queued + status.pending > 0) {
+                    startStatusPolling()
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(summarizationStatus = null)
+            }
+        }
+    }
+
+    // Caps the loop so a wedged backend can't keep the screen polling forever.
+    private fun startStatusPolling() {
+        if (statusPollingJob?.isActive == true) return
+        statusPollingJob = viewModelScope.launch(ioDispatcher) {
+            repeat(STATUS_POLL_MAX_ITERATIONS) {
+                delay(STATUS_POLL_INTERVAL_MS)
+                val status = try {
+                    getStatusCall(chatId).result
+                } catch (e: Exception) {
+                    null
+                } ?: return@repeat
+                _uiState.value = _uiState.value.copy(summarizationStatus = status)
+                if (status.queued + status.pending == 0) {
+                    loadChapters()
+                    loadContextUsage()
+                    return@launch
+                }
+            }
+        }
+    }
     /** Queues summarization of all currently planned chapters with [model]. */
     fun summarize(model: LLMModelType) {
         val chapters = _uiState.value.chapters.orEmpty()
@@ -159,6 +209,7 @@ class ChatSettingsViewModel(
                     isSummarizing = false,
                     summarizeQueuedCount = queued
                 )
+                loadSummarizationStatus()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isSummarizing = false,
@@ -230,6 +281,11 @@ class ChatSettingsViewModel(
                 )
             }
         }
+    }
+
+    companion object {
+        private const val STATUS_POLL_INTERVAL_MS = 2_000L
+        private const val STATUS_POLL_MAX_ITERATIONS = 150
     }
 
     // Mirrors the backend's DEFAULT_CHAT_SETTINGS (src/application/chats/settings.py).
